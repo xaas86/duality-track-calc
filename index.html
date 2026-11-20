@@ -125,6 +125,32 @@
   .changelog h4 time{color:var(--muted);font-weight:400;font-size:12px;margin-left:6px}
   .changelog ul{margin:0;padding-left:18px}
   body.dragging{user-select:none;-webkit-user-select:none;cursor:grabbing}
+  /* ---- 3MF-Export ---- */
+  .dropzone{border:2px dashed var(--accent-brd);border-radius:10px;background:var(--sunken);
+    padding:22px 16px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer;transition:.15s}
+  .dropzone:hover,.dropzone.over{background:var(--accent-soft);border-color:var(--accent)}
+  .dropzone b{display:block;color:var(--ink);font-size:14px;margin-bottom:4px}
+  .exprow{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:14px 0}
+  .exprow label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:170px}
+  .exprow select,.exprow .num{background:var(--field);color:var(--ink);border:1px solid var(--line);
+    border-radius:6px;padding:7px 9px;font:inherit;font-size:13px;min-width:170px}
+  .exptable{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+  .exptable th,.exptable td{text-align:left;padding:5px 7px;border-bottom:1px solid var(--line);vertical-align:middle}
+  .exptable th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  .exptable td.name{font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all}
+  .exptable td.num,.exptable th.num{text-align:right;width:78px}
+  .exptable .num input{width:58px;background:var(--field);color:var(--ink);border:1px solid var(--line);
+    border-radius:5px;padding:3px 5px;text-align:right;font:inherit;font-size:12px}
+  .exptable tr.miss td{color:var(--miss)}
+  .exptable tr.big td{color:var(--warn)}
+  .expstat{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .expstat span{background:var(--sunken);border-radius:6px;padding:5px 9px;font-size:12px;color:var(--muted)}
+  .expstat b{color:var(--ink)}
+  .expbar{height:6px;background:var(--sunken);border-radius:4px;overflow:hidden;margin-top:10px}
+  .expbar i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+  .planbild{margin-top:12px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--sunken)}
+  .planbild button{margin-left:8px}
+  .planbild img{display:block;max-width:100%;height:auto;margin-top:8px;border:1px solid var(--line);border-radius:6px;background:#fff}
 </style>
 </head>
 <body>
@@ -151,6 +177,7 @@
   <div class="tabs">
     <button class="tab active" id="tabList" data-t="tabList">Streifenliste</button>
     <button class="tab" id="tabPlan" data-t="tabPlan">Wandplaner</button>
+    <button class="tab" id="tabExport" data-t="tabExport">3MF-Export</button>
   </div>
 
   <div class="grid" id="viewList">
@@ -235,6 +262,11 @@
         </div>
         <canvas id="planCanvas"></canvas>
         <div class="hint" data-t="hint">Teil aus der Palette auf die Wand ziehen. Magnet rastet an freien Endpunkten ein (<b>Shift</b> = ohne Magnet). Tasten: <b>R</b>/<b>Shift+R</b> drehen, <b>F</b> spiegeln, <b>Entf</b> löschen, <b>Strg+Z</b> rückgängig. Leerer Bereich: Ziehen = verschieben, Klick = Auswahl aufheben, Mausrad = Zoom. Am Tablet: Klonen, Drehen (±45°), Spiegeln und Löschen über die Knöpfe im Inspector.</div>
+        <div class="planbild" id="planBildBox" hidden>
+          <span data-t="planBildRestored">Bild aus der JSON-Datei (Stand beim Speichern)</span>
+          <button id="btnPlanBildSave" type="button" data-t="btnPlanBildSave">Bild speichern</button>
+          <img id="planBildImg" alt="Wandplan">
+        </div>
         <div class="sum" id="planSum"></div>
         <div class="legend" id="legend"></div>
       </div>
@@ -242,6 +274,61 @@
       <div class="insp" id="inspector"></div>
 
     </div>
+  </section>
+
+  <section class="card" id="viewExport" hidden>
+    <h2 data-t="exportH2">Bambu-Studio-3MF erzeugen</h2>
+    <div class="hint" data-t="exportHint">Die STLs bleiben lokal im Browser – es wird nichts hochgeladen. Auswahl und Muster ergeben die Stückliste; die Platten werden automatisch gefüllt.</div>
+
+    <div class="dropzone" id="stlDrop" data-t-title="exportDropTitle" title="Ordner oder STL-Dateien auswählen">
+      <b data-t="exportDropH">STL-Ordner hierher ziehen</b>
+      <span data-t="exportDropTxt">oder klicken zum Auswählen · im Ordner-Picker den Printables-Download-Ordner wählen</span>
+    </div>
+    <div class="toolbar" style="margin-top:8px">
+      <button id="btnStlFiles" type="button" data-t="btnStlFiles">STL-Dateien einzeln auswählen</button>
+    </div>
+    <input type="file" id="stlInput" multiple webkitdirectory hidden>
+    <input type="file" id="stlFilesInput" multiple accept=".stl" hidden>
+
+    <div class="exprow">
+      <label><span data-t="exportPattern">Muster (Skin)</span>
+        <select id="patternSel"></select>
+      </label>
+      <label><span data-t="exportPrinter">Drucker</span>
+        <select id="printerSel"></select>
+      </label>
+      <label><span data-t="exportStrip">Track-Teile</span>
+        <select id="exportSource">
+          <option value="qty" data-t="exportFromList">aus der Stückliste</option>
+          <option value="plan" data-t="exportFromPlan">aus dem Wandplan</option>
+        </select>
+      </label>
+      <label><span data-t="exportIncludeTrack">Track-Teile mitdrucken</span>
+        <select id="includeTrack">
+          <option value="1" data-t="yes">ja</option>
+          <option value="0" data-t="no">nein</option>
+        </select>
+      </label>
+      <label><span data-t="exportRotate">Ausrichtung</span>
+        <select id="rotateSel">
+          <option value="auto" data-t="rotateAuto">automatisch flach legen</option>
+          <option value="hint" data-t="rotateHint">nicht drehen, Hinweis anzeigen</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="toolbar">
+      <button id="btnDerive" type="button" data-t="btnDerive">Stückliste ermitteln</button>
+      <button id="btn3mf" type="button" class="primary" data-t="btn3mf">3MF herunterladen</button>
+    </div>
+    <div class="expbar"><i id="expBar"></i></div>
+    <div class="hint" id="expStatus"></div>
+
+    <table class="exptable" id="expTable" hidden>
+      <thead><tr><th data-t="expFile">Datei</th><th class="num" data-t="expCount">Anzahl</th><th class="num" data-t="expSize">Maße (mm)</th><th data-t="expState">Status</th></tr></thead>
+      <tbody id="expBody"></tbody>
+    </table>
+    <div class="expstat" id="expStat"></div>
   </section>
 
   <footer data-t="foot">Berechnung: Länge der Linie, auf der der Streifen im Kanal liegt. Gerade Teile = Nennmaß aus dem Dateinamen; Kurven/Winkelteile = Rundungswerte anhand von Radius und Winkel. Teile ohne Wert („Maß fehlt“) gehen nicht in die Summe ein. Im Wandplaner werden die Teile schematisch als Mittellinie (Kern des Kanals) mit 35,8 mm Bandbreite gezeichnet; die Längen für die Auswertung liefert weiterhin die Liste (Streifen-Mittellinie), nicht das gezeichnete Band.</footer>
@@ -299,10 +386,11 @@ const I18N = {
     catNote:'Zubehör ohne Strip (Skins, Splice-Blocks, Mounts, Light-Couplings) ist bewusst nicht enthalten.',
     pickedH2:'Auswahl & Auswertung', stripLbl:'Verfügbare Streifenlänge (m)',
     btnExport:'JSON speichern', btnImport:'JSON laden', btnReset:'Zurücksetzen',
-    saveNote:'Der Plan wird automatisch im Browser gespeichert. Mit „JSON speichern“ als Datei exportieren und später wieder laden.',
+    saveNote:'Der Plan wird automatisch im Browser gespeichert. „JSON speichern“ exportiert Liste, Wandplan und Bild als Datei; später wieder laden.',
     planH2:'Wandplaner', palPh:'Teile suchen (z. B. 90, tangent) …',
     wallLbl:'Wand', gridLbl:'Raster',
     btnFit:'Ansicht einpassen', btnUndo:'Rückgängig', btnPlanImg:'Bild speichern',
+    planBildRestored:'Bild aus der JSON-Datei (Stand beim Speichern)', btnPlanBildSave:'Bild speichern',
     btnPlanClear:'Plan leeren', btnAdopt:'Plan als Stückliste',
     hint:'Teil aus der Palette auf die Wand ziehen. Magnet rastet an freien Endpunkten ein (<b>Shift</b> = ohne Magnet). Tasten: <b>R</b>/<b>Shift+R</b> drehen, <b>F</b> spiegeln, <b>Entf</b> löschen, <b>Strg+Z</b> rückgängig. Leerer Bereich: Ziehen = verschieben, Klick = Auswahl aufheben, Mausrad = Zoom. Am Tablet: Klonen, Drehen (±45°), Spiegeln und Löschen über die Knöpfe im Inspector.',
     foot:'Berechnung: Länge der Linie, auf der der Streifen im Kanal liegt. Gerade Teile = Nennmaß aus dem Dateinamen; Kurven/Winkelteile = Rundungswerte anhand von Radius und Winkel. Teile ohne Wert („Maß fehlt“) gehen nicht in die Summe ein. Im Wandplaner werden die Teile schematisch als Mittellinie (Kern des Kanals) mit 35,8 mm Bandbreite gezeichnet; die Längen für die Auswertung liefert weiterhin die Liste (Streifen-Mittellinie), nicht das gezeichnete Band.',
@@ -326,7 +414,39 @@ const I18N = {
     confirmAdopt:'Plan als Stückliste übernehmen? Die aktuelle Auswahl in der Liste wird ersetzt.',
     toastReset:'Zurückgesetzt', toastSaved:'JSON gespeichert', toastLoaded:'Plan geladen',
     toastErr:'Fehler: {0}', errFormat:'falsches Format', toastNoParts:'Keine Teile im Plan.',
-    toastAdopted:'Stückliste übernommen'
+    toastAdopted:'Stückliste übernommen',
+    tabExport:'3MF-Export',
+    exportH2:'Bambu-Studio-3MF erzeugen',
+    exportHint:'Die STLs bleiben lokal im Browser – es wird nichts hochgeladen. Auswahl und Muster ergeben die Stückliste; die Platten werden automatisch gefüllt.',
+    exportDropTitle:'Ordner oder STL-Dateien auswählen',
+    exportDropH:'STL-Ordner hierher ziehen',
+    exportDropTxt:'oder klicken zum Auswählen · wenn der Ordner-Picker nicht mitspielt: unten „STL-Dateien einzeln auswählen“ nutzen',
+    exportPattern:'Muster (Skin)', exportPrinter:'Drucker', exportStrip:'Track-Teile',
+    exportFromList:'aus der Stückliste', exportFromPlan:'aus dem Wandplan',
+    exportIncludeTrack:'Track-Teile mitdrucken', exportRotate:'Ausrichtung',
+    rotateAuto:'automatisch flach legen', rotateHint:'nicht drehen, Hinweis anzeigen',
+    btnDerive:'Stückliste ermitteln', btn3mf:'3MF herunterladen',
+    expFile:'Datei', expCount:'Anzahl', expSize:'Maße (mm)', expState:'Status',
+    expNoFiles:'Noch keine STLs geladen. Ordner auswählen oder Dateien hierher ziehen.',
+    expNoParts:'Keine Teile ausgewählt – zuerst in der Streifenliste oder im Wandplaner Teile festlegen.',
+    expDerived:'{0} Dateien aus {1} Teilen abgeleitet.',
+    expMissing:'{0} Datei(en) fehlen im ausgewählten Ordner: {1}',
+    expOversize:'{0} Teil(e) passen nicht auf die Platte (über 256 mm) und werden übersprungen: {1}',
+    expTooHigh:'{0} Teil(e) sind höher als die Platte – bitte in Bambu Studio drehen: {1}',
+    expRotateHint:'Nicht gedreht: {0} Teil(e) liegen mit der langen Kante hochkant. In Bambu Studio um 90° um die Y-Achse drehen: {1}',
+    expRotated:'Automatisch flach gelegt: {0} Teil(e) (lange Kante liegt jetzt in der Plattenebene).',
+    expUpright:'{0} Teil(e) sind flach zu lang für die Platte und wurden deshalb hochkant exportiert – in Bambu Studio prüfen/anpassen: {1}',
+    expNoSkin:'{0} Track-Teil(e) haben für dieses Muster kein Skin (z. B. Tangenten bei Original-Mustern) – Evolution-Muster Nautilus/Matte Hex/3D-Hex verwenden: {1}',
+    expTrackPlates:'Track-Platten', expSkinPlates:'Skin-Platten',
+    expPlates:'{0} Platten · {1} Teile', expPieces:'{0} Teile',
+    expReady:'Bereit. {0}', expBuilding:'Platte {0} von {1} – {2} …',
+    expDone:'3MF gespeichert: {0}', expErr:'Fehler: {0}',
+    expNoProfile:'Für {0} liegt kein vollständiges Bambu-Profil vor.',
+    expNoDirectory:'Ordnerauswahl wird von diesem Browser nicht unterstützt – bitte Dateien einzeln auswählen.',
+    btnStlFiles:'STL-Dateien einzeln auswählen',
+    expDropEmpty:'Im abgelegten Ordner wurden keine STL-Dateien gefunden. Bitte die STL-Dateien einzeln auswählen oder den Ordner über die Schaltfläche oben wählen.',
+    expLoaded:'{0} STL-Dateien geladen. Muster wählen und Stückliste ermitteln.',
+    expNoFileForPart:'Keine STL für {0} gefunden.'
   },
   en: {
     brandTitle:'Duality LED Track – Strip Calculator',
@@ -342,10 +462,11 @@ const I18N = {
     catNote:'Accessories without a strip (skins, splice blocks, mounts, light couplings) are intentionally not included.',
     pickedH2:'Selection & result', stripLbl:'Available strip length (m)',
     btnExport:'Save JSON', btnImport:'Load JSON', btnReset:'Reset',
-    saveNote:'The plan is saved automatically in the browser. Use “Save JSON” to export it to a file and load it again later.',
+    saveNote:'The plan is saved automatically in the browser. “Save JSON” exports the list, wall plan and image to a file; load it again later.',
     planH2:'Wall planner', palPh:'Search parts (e.g. 90, tangent)…',
     wallLbl:'Wall', gridLbl:'Grid',
     btnFit:'Fit view', btnUndo:'Undo', btnPlanImg:'Save image',
+    planBildRestored:'Image from the JSON file (status when saved)', btnPlanBildSave:'Save image',
     btnPlanClear:'Clear plan', btnAdopt:'Adopt as parts list',
     hint:'Drag a part from the palette onto the wall. The magnet snaps to free endpoints (<b>Shift</b> = no magnet). Keys: <b>R</b>/<b>Shift+R</b> rotate, <b>F</b> flip, <b>Del</b> delete, <b>Ctrl+Z</b> undo. Empty area: drag = pan, click = deselect, mouse wheel = zoom. On tablets: clone, rotate (±45°), flip and delete via the buttons in the inspector.',
     foot:'Calculation: length of the line on which the strip sits in the channel. Straight parts = nominal dimension from the file name; curved/angled parts = rounded values based on radius and angle. Parts without a value (missing dimension) are not included in the sum. In the wall planner, parts are drawn schematically as a centre line (core of the channel) with a 35.8 mm strip width; the lengths for the result come from the list (strip centre line), not from the drawn band.',
@@ -369,7 +490,39 @@ const I18N = {
     confirmAdopt:'Adopt the plan as parts list? The current selection in the list will be replaced.',
     toastReset:'Reset', toastSaved:'JSON saved', toastLoaded:'Plan loaded',
     toastErr:'Error: {0}', errFormat:'wrong format', toastNoParts:'No parts in the plan.',
-    toastAdopted:'Parts list adopted'
+    toastAdopted:'Parts list adopted',
+    tabExport:'3MF export',
+    exportH2:'Create Bambu Studio 3MF',
+    exportHint:'The STLs stay local in the browser – nothing is uploaded. Selection and pattern produce the parts list; the plates are filled automatically.',
+    exportDropTitle:'Select a folder or STL files',
+    exportDropH:'Drop STL folder here',
+    exportDropTxt:'or click to select · if the folder picker does not cooperate, use “Select STL files individually” below',
+    exportPattern:'Pattern (skin)', exportPrinter:'Printer', exportStrip:'Track parts',
+    exportFromList:'from the parts list', exportFromPlan:'from the wall plan',
+    exportIncludeTrack:'Include track parts', exportRotate:'Orientation',
+    rotateAuto:'lay flat automatically', rotateHint:'do not rotate, show a hint',
+    btnDerive:'Derive parts list', btn3mf:'Download 3MF',
+    expFile:'File', expCount:'Count', expSize:'Size (mm)', expState:'Status',
+    expNoFiles:'No STLs loaded yet. Select a folder or drop files here.',
+    expNoParts:'No parts selected – choose parts in the strip list or wall planner first.',
+    expDerived:'{0} files derived from {1} parts.',
+    expMissing:'{0} file(s) missing from the selected folder: {1}',
+    expOversize:'{0} part(s) do not fit on the bed (over 256 mm) and are skipped: {1}',
+    expTooHigh:'{0} part(s) are taller than the bed – rotate them in Bambu Studio: {1}',
+    expRotateHint:'Not rotated: {0} part(s) stand upright with the long edge vertical. Rotate 90° about the Y axis in Bambu Studio: {1}',
+    expRotated:'Laid flat automatically: {0} part(s) (long edge now lies in the bed plane).',
+    expUpright:'{0} part(s) are too long to lie flat on the bed and were therefore exported upright – check/adjust in Bambu Studio: {1}',
+    expNoSkin:'{0} track part(s) have no skin for this pattern (e.g. tangents in original patterns) – use the Evolution patterns Nautilus/Matte Hex/3D Hex: {1}',
+    expTrackPlates:'track plates', expSkinPlates:'skin plates',
+    expPlates:'{0} plates · {1} parts', expPieces:'{0} parts',
+    expReady:'Ready. {0}', expBuilding:'Plate {0} of {1} – {2} …',
+    expDone:'3MF saved: {0}', expErr:'Error: {0}',
+    expNoProfile:'No complete Bambu profile available for {0}.',
+    expNoDirectory:'Folder picking is not supported by this browser – please select the files individually.',
+    btnStlFiles:'Select STL files individually',
+    expDropEmpty:'No STL files were found in the dropped folder. Please select the STL files individually or choose the folder with the button above.',
+    expLoaded:'{0} STL files loaded. Choose a pattern and derive the parts list.',
+    expNoFileForPart:'No STL found for {0}.'
   }
 };
 function t(key, ...args){
@@ -403,8 +556,51 @@ function renderFilterOptions(){
 }
 
 // Versionierung (SemVer + Kanal-Suffix); oberster Eintrag == APP_VERSION, prüft check.js.
-const APP_VERSION = '0.2.0-alpha';
+const APP_VERSION = '0.3.3-alpha';
 const CHANGELOG = [
+  {version:'0.3.3-alpha', date:'2026-11-20', items:[
+    '3MF-Export: Tracks und Skins liegen auf getrennten, dicht gepackten Platten – keine Baugruppen mehr (<assemble_item> entfernt)',
+    'Neue Option „Ausrichtung": automatisch flach legen oder nicht drehen, aber Hinweis zu den Teilen anzeigen',
+    'Zu lange Teile (z. B. 260-mm-Nautilus-Skins) werden hochkant exportiert und gemeldet statt übersprungen',
+    'A1-Profil: project_settings.config 1:1 aus einer echten, geprüft ladenden A1-3MF – keine Profil-Konstruktion mehr'
+  ],
+  itemsEn:[
+    '3MF export: tracks and skins now go on separate, densely packed plates – no assemblies anymore (<assemble_item> removed)',
+    'New “Orientation” option: lay parts flat automatically, or keep the orientation and show a hint which parts to rotate',
+    'Parts that are too long when laid flat (e.g. 260-mm Nautilus skins) are exported upright and reported instead of being skipped',
+    'A1 profile: project_settings.config taken verbatim from a real A1 project verified to load – no more profile reconstruction'
+  ]},
+  {version:'0.3.2-alpha', date:'2026-11-20', items:[
+    '3MF-Export: model_settings.config jetzt im vollständigen Bambu-Format (face_count, mesh_stat, source_*, assemble_item) – Behebung von „Invalid configuration“/„keine Geometriedaten“ beim Öffnen in Bambu Studio',
+    '[Content_Types].xml steht jetzt als erster ZIP-Eintrag (OPC-Konvention)'
+  ],
+  itemsEn:[
+    '3MF export: model_settings.config now uses the full Bambu format (face_count, mesh_stat, source_*, assemble_item) to fix “Invalid configuration” / “no geometry data” when opening in Bambu Studio',
+    '[Content_Types].xml is now the first ZIP entry (OPC convention)'
+  ]},
+  {version:'0.3.1-alpha', date:'2026-11-20', items:[
+
+    'JSON-Export enthält jetzt das Wandplan-PNG; nach dem Laden wird es im Planer als Vorschau gezeigt und kann erneut gespeichert werden',
+    'Beim JSON-Import werden der Wandplan neu gezeichnet und der gespeicherte Tab wiederhergestellt',
+    'STL-Import: zusätzliche Schaltfläche zur Einzeldaten-Auswahl, robustere Ordner-Erkennung per Drag & Drop (FileSystemHandle und webkit-Entries) und klare Meldung, wenn ein abgelegter Ordner keine STLs enthält'
+  ],
+  itemsEn:[
+    'JSON export now includes the wall-plan PNG; after loading it is shown as a preview in the planner and can be saved again',
+    'JSON import redraws the wall plan and restores the saved tab',
+    'STL import: additional button for selecting individual files, more reliable folder detection via drag & drop (FileSystemHandle and webkit entries) and a clear message when a dropped folder contains no STLs'
+  ]},
+  {version:'0.3.0-alpha', date:'2026-11-20', items:[
+    'Dritter Tab „3MF-Export": lokale STLs per Ordner-Picker oder Drag & Drop laden – die Dateien bleiben im Browser, nichts wird hochgeladen',
+    'Musterwahl (Hex, Blank, Bars, Kabelmanagement, Nautilus, Matte Hex, 3D-Hex) leitet aus Stückliste oder Wandplan die passenden Skin-STLs ab; Stückzahlen sind in einer Tabelle editierbar',
+    'Druckerwahl P1S oder A1 mit vollständigem Bambu-Studio-Profil; automatische Plattenaufteilung (Regalpacker) und Download einer .3MF mit einem Tab je Platte',
+    'Export übernimmt die Export-Ausrichtung aus den STLs ohne Drehen; automatisches Drehen bleibt TODO, zu hohe Teile werden hingewiesen'
+  ],
+  itemsEn:[
+    'Third tab “3MF export”: load local STLs via folder picker or drag & drop – files stay in the browser, nothing is uploaded',
+    'Pattern selection (hex, blank, bars, cable management, Nautilus, matte hex, 3D hex) derives the matching skin STLs from the parts list or wall plan; counts are editable in a table',
+    'Printer selection P1S or A1 with a complete Bambu Studio profile; automatic plate packing (shelf packer) and download of a .3MF with one tab per plate',
+    'Export keeps the orientation from the STL files without rotating; automatic rotation remains TODO and tall parts are flagged'
+  ]},
   {version:'0.2.0-alpha', date:'2026-10-09', items:[
     'Wandplaner als zweiter Tab: Teile per Drag & Drop auf eine Wand, maßstäbliche Bänder (35,8 mm), Wandmaße und 50-mm-Raster',
     'Magnet-Snapping an freien Endpunkten (45°-Raster), Shift schaltet den Magnet ab',
@@ -638,8 +834,910 @@ function pickSnap(targets, mine, rot, flip, ox, oy, radius){
 }
 // </geo>
 
+// <export-data>
+// Aus ledtrack/build_export_data.py erzeugt – nicht von Hand pflegen.
+const SKIN_MAP = {
+  "3dhex": {
+    "e_707_45_intside.stl": [
+      "skin_707_45_inside_3dhexseamless_lh.stl",
+      "skin_707_45_inside_3dhexseamless_rh.stl"
+    ],
+    "e_707_45_outside.stl": [
+      "skin_707_45_outside_3dhexseamless_lh.stl",
+      "skin_707_45_outside_3dhexseamless_rh.stl"
+    ],
+    "e_707_90_inside.stl": [
+      "skin_707_90_inside_3dhexseamless_lh.stl",
+      "skin_707_90_inside_3dhexseamless_rh.stl"
+    ],
+    "e_707_90_outside.stl": [
+      "skin_707_90_outside_3dhexseamless_lh.stl",
+      "skin_707_90_outside_3dhexseamless_rh.stl"
+    ],
+    "e_tangent_45_r100.stl": [
+      "skin_tangent_45_r100_3dhexseamless__lh.stl",
+      "skin_tangent_45_r100_3dhexseamless_rh.stl"
+    ],
+    "e_tangent_45_r175.stl": [
+      "skin_tangent_45_r175_3dhexseamless_lh.stl",
+      "skin_tangent_45_r175_3dhexseamless_rh.stl"
+    ],
+    "e_tangent_45_r225.stl": [
+      "skin_tangent_45_r225_3dhexseamless_lh.stl",
+      "skin_tangent_45_r225_3dhexseamless_rh.stl"
+    ],
+    "e_tangent_90_r100.stl": [
+      "skin_tangent_90_r100_3dhexseamless_lh.stl",
+      "skin_tangent_90_r100_3dhexseamless_rh.stl"
+    ],
+    "e_tangent_90_r175.stl": [
+      "skin_tangent_90_r175_3dhexseamless_lh.stl",
+      "skin_tangent_90_r175_3dhexseamless_rh.stl"
+    ],
+    "e_tangent_90_r225.stl": [
+      "skin_tangent_90_r225_3dhexseamless_lh.stl",
+      "skin_tangent_90_r225_3dhexseamless_rh.stl"
+    ],
+    "track_45_150.stl": [
+      "skin_45_150_seamless3dhex_lh.stl",
+      "skin_45_150_seamless3dhex_rh.stl"
+    ],
+    "track_45_250.stl": [
+      "skin_45_250_seamless3dhex_lh.stl",
+      "skin_45_250_seamless3dhex_rh.stl"
+    ],
+    "track_90_150.stl": [
+      "skin_90_150_seamless3dhex_lh.stl",
+      "skin_90_150_seamless3dhex_rh.stl"
+    ],
+    "track_90_250.stl": [
+      "skin_90_250_seamless3dhex_lh.stl",
+      "skin_90_250_seamless3dhex_rh.stl"
+    ],
+    "track_cross_150.stl": [
+      "skin_cross_150_seamless3dhex.stl"
+    ],
+    "track_straight_100.stl": [
+      "skin_straight_100_seamless3dhex.stl",
+      "skin_straight_100_seamless3dhex_end.stl",
+      "skin_straight_100_seamless3dhex_start.stl"
+    ],
+    "track_straight_150.stl": [
+      "skin_straight_150_seamless3dhex.stl",
+      "skin_straight_150_seamless3dhex_end.stl",
+      "skin_straight_150_seamless3dhex_start.stl"
+    ],
+    "track_straight_200.stl": [
+      "skin_straight_200_seamless3dhex.stl",
+      "skin_straight_200_seamless3dhex_end.stl",
+      "skin_straight_200_seamless3dhex_start.stl"
+    ],
+    "track_straight_250.stl": [
+      "skin_straight_250_seamless3dhex.stl",
+      "skin_straight_250_seamless3dhex_end.stl",
+      "skin_straight_250_seamless3dhex_start.stl"
+    ],
+    "track_straight_272.stl": [
+      "skin_straight_272_seamless3dhex.stl"
+    ],
+    "track_straight_300.stl": [
+      "skin_straight_300_seamless3dhex.stl",
+      "skin_straight_300_seamless3dhex_end.stl",
+      "skin_straight_300_seamless3dhex_start.stl"
+    ],
+    "track_straight_350.stl": [
+      "skin_straight_350_seamless3dhex.stl",
+      "skin_straight_350_seamless3dhex_end.stl",
+      "skin_straight_350_seamless3dhex_start.stl"
+    ],
+    "track_vitality_a_135.stl": [
+      "skin_3dhex_vitality_a_135_lh.stl",
+      "skin_3dhex_vitality_a_135_rh.stl"
+    ],
+    "track_vitality_a_675.stl": [
+      "skin_3dhex_vitality_a_675_lh.stl",
+      "skin_3dhex_vitality_a_675_rh.stl"
+    ],
+    "track_vitality_b_1425.stl": [
+      "skin_3dhex_vitality_b_1425_lh.stl",
+      "skin_3dhex_vitality_b_1425_rh.stl"
+    ],
+    "track_vitality_b_7125.stl": [
+      "skin_3dhex_vitality_b_7125_lh.stl",
+      "skin_3dhex_vitality_b_7125_rh.stl"
+    ],
+    "track_vitality_c_150.stl": [
+      "skin_3dhex_vitality_c_150_lh.stl",
+      "skin_3dhex_vitality_c_150_rh.stl"
+    ],
+    "track_vitality_c_75.stl": [
+      "skin_3dhex_vitality_c_75_lh.stl",
+      "skin_3dhex_vitality_c_75_rh.stl"
+    ],
+    "track_vitality_d_1575.stl": [
+      "skin_3dhex_vitality_d_1575_lh.stl",
+      "skin_3dhex_vitality_d_1575_rh.stl"
+    ],
+    "track_vitality_d_7875.stl": [
+      "skin_3dhex_vitality_d_7875_lh.stl",
+      "skin_3dhex_vitality_d_7875_rh.stl"
+    ],
+    "track_vitality_e_165.stl": [
+      "skin_3dhex_vitality_e_165_lh.stl",
+      "skin_3dhex_vitality_e_165_rh.stl"
+    ],
+    "track_vitality_e_825.stl": [
+      "skin_3dhex_vitality_e_825_lh.stl",
+      "skin_3dhex_vitality_e_825_rh.stl"
+    ]
+  },
+  "bars": {
+    "track_45_150.stl": [
+      "skin_45_150_bars.stl"
+    ],
+    "track_45_250.stl": [
+      "skin_45_250_bars.stl"
+    ],
+    "track_90_150.stl": [
+      "skin_90_150_bars.stl"
+    ],
+    "track_90_250.stl": [
+      "skin_90_250_bars.stl"
+    ],
+    "track_cross_150.stl": [
+      "skin_cross_150_bars.stl"
+    ],
+    "track_down_45_100.stl": [
+      "skin_down_45_100_bars.stl"
+    ],
+    "track_down_90_100.stl": [
+      "skin_down_90_100_bars.stl"
+    ],
+    "track_straight_100.stl": [
+      "skin_straight_100_bars.stl"
+    ],
+    "track_straight_150.stl": [
+      "skin_straight_150_bars.stl"
+    ],
+    "track_straight_200.stl": [
+      "skin_straight_200_bars.stl"
+    ],
+    "track_straight_250.stl": [
+      "skin_straight_250_bars.stl"
+    ],
+    "track_straight_300.stl": [
+      "skin_straight_300_bars.stl"
+    ],
+    "track_straight_350.stl": [
+      "skin_straight_350_bars.stl"
+    ],
+    "track_straight_400.stl": [
+      "skin_straight_400_bars.stl"
+    ],
+    "track_tee_150.stl": [
+      "skin_tee_150_bars.stl"
+    ],
+    "track_up_45_100.stl": [
+      "skin_up_45_100_bars.stl"
+    ],
+    "track_up_90_100.stl": [
+      "skin_up_90_100_bars.stl"
+    ]
+  },
+  "blank": {
+    "track_45_150.stl": [
+      "skin_45_150_blank.stl"
+    ],
+    "track_45_250.stl": [
+      "skin_45_250_blank.stl"
+    ],
+    "track_90_150.stl": [
+      "skin_90_150_blank.stl"
+    ],
+    "track_90_250.stl": [
+      "skin_90_250_blank.stl"
+    ],
+    "track_cross_150.stl": [
+      "skin_cross_150_blank.stl"
+    ],
+    "track_down_45_100.stl": [
+      "skin_down_45_100_blank.stl"
+    ],
+    "track_down_90_100.stl": [
+      "skin_down_90_100_blank.stl"
+    ],
+    "track_straight_100.stl": [
+      "skin_straight_100_blank.stl"
+    ],
+    "track_straight_150.stl": [
+      "skin_straight_150_blank.stl"
+    ],
+    "track_straight_200.stl": [
+      "skin_straight_200_blank.stl"
+    ],
+    "track_straight_250.stl": [
+      "skin_straight_250_blank.stl"
+    ],
+    "track_straight_300.stl": [
+      "skin_straight_300_blank.stl"
+    ],
+    "track_straight_350.stl": [
+      "skin_straight_350_blank.stl"
+    ],
+    "track_straight_400.stl": [
+      "skin_straight_400_blank.stl"
+    ],
+    "track_tee_150.stl": [
+      "skin_tee_150_blank.stl"
+    ],
+    "track_up_45_100.stl": [
+      "skin_up_45_100_blank.stl"
+    ],
+    "track_up_90_100.stl": [
+      "skin_up_90_100_blank.stl"
+    ]
+  },
+  "cablemanagement": {
+    "track_45_150.stl": [
+      "skin_45_150_cablemanagement.stl"
+    ],
+    "track_45_250.stl": [
+      "skin_45_250_cablemanagement.stl"
+    ],
+    "track_90_150.stl": [
+      "skin_90_150_cablemanagement.stl"
+    ],
+    "track_90_250.stl": [
+      "skin_90_250_cablemanagement.stl"
+    ],
+    "track_straight_150.stl": [
+      "skin_straight_150_cablemanagement.stl"
+    ],
+    "track_straight_200.stl": [
+      "skin_straight_200_cablemanagement.stl"
+    ],
+    "track_straight_250.stl": [
+      "skin_straight_250_cablemanagement.stl"
+    ],
+    "track_straight_300.stl": [
+      "skin_straight_300_cablemanagement.stl"
+    ]
+  },
+  "hex": {
+    "track_45_150.stl": [
+      "skin_45_150_hex.stl"
+    ],
+    "track_45_250.stl": [
+      "skin_45_250_hex.stl"
+    ],
+    "track_90_150.stl": [
+      "skin_90_150_hex.stl"
+    ],
+    "track_90_250.stl": [
+      "skin_90_250_hex.stl"
+    ],
+    "track_cross_150.stl": [
+      "skin_cross_150_hex.stl"
+    ],
+    "track_down_45_100.stl": [
+      "skin_down_45_100_hex.stl"
+    ],
+    "track_down_90_100.stl": [
+      "skin_down_90_100_hex.stl"
+    ],
+    "track_straight_100.stl": [
+      "skin_straight_100_hex.stl"
+    ],
+    "track_straight_112.stl": [
+      "skin_straight_112_hex.stl"
+    ],
+    "track_straight_150.stl": [
+      "skin_straight_150_hex.stl"
+    ],
+    "track_straight_200.stl": [
+      "skin_straight_200_hex.stl"
+    ],
+    "track_straight_250.stl": [
+      "skin_straight_250_hex.stl"
+    ],
+    "track_straight_300.stl": [
+      "skin_straight_300_hex.stl"
+    ],
+    "track_straight_350.stl": [
+      "skin_straight_350_hex.stl"
+    ],
+    "track_straight_400.stl": [
+      "skin_straight_400_hex.stl"
+    ],
+    "track_straight_94.stl": [
+      "skin_straight_94_hex.stl"
+    ],
+    "track_tee_150.stl": [
+      "skin_tee_150_hex.stl"
+    ],
+    "track_up_45_100.stl": [
+      "skin_up_45_100_hex.stl"
+    ],
+    "track_up_90_100.stl": [
+      "skin_up_90_100_hex.stl"
+    ]
+  },
+  "mattehex": {
+    "e_707_45_intside.stl": [
+      "skin_mattehex_707_45_inside_lh.stl",
+      "skin_mattehex_707_45_inside_rh.stl"
+    ],
+    "e_707_45_outside.stl": [
+      "skin_mattehex_707_45_outside_lh.stl",
+      "skin_mattehex_707_45_outside_rh.stl"
+    ],
+    "e_707_90_inside.stl": [
+      "skin_mattehex_707_90_inside_lh.stl",
+      "skin_mattehex_707_90_inside_rh.stl"
+    ],
+    "e_707_90_outside.stl": [
+      "skin_mattehex_707_90_outside_lh.stl",
+      "skin_mattehex_707_90_outside_rh.stl"
+    ],
+    "e_tangent_45_r100.stl": [
+      "skin_mattehex_tangent_45_r100_lh.stl",
+      "skin_mattehex_tangent_45_r100_rh.stl"
+    ],
+    "e_tangent_45_r175.stl": [
+      "skin_mattehex_tangent_45_r175_lh.stl",
+      "skin_mattehex_tangent_45_r175_rh.stl"
+    ],
+    "e_tangent_45_r225.stl": [
+      "skin_mattehex_tangent_45_r225_lh.stl",
+      "skin_mattehex_tangent_45_r225_rh.stl"
+    ],
+    "e_tangent_90_r100.stl": [
+      "skin_mattehex_tangent_90_r100_lh.stl",
+      "skin_mattehex_tangent_90_r100_rh.stl"
+    ],
+    "e_tangent_90_r175.stl": [
+      "skin_mattehex_tangent_90_r175_lh.stl",
+      "skin_mattehex_tangent_90_r175_rh.stl"
+    ],
+    "e_tangent_90_r225.stl": [
+      "skin_mattehex_tangent_90_r225_lh.stl",
+      "skin_mattehex_tangent_90_r225_rh.stl"
+    ],
+    "track_45_150.stl": [
+      "skin_mattehex_45_150_lh.stl",
+      "skin_mattehex_45_150_rh.stl"
+    ],
+    "track_45_250.stl": [
+      "skin_mattehex_45_250_lh.stl",
+      "skin_mattehex_45_250_rh.stl"
+    ],
+    "track_90_150.stl": [
+      "skin_mattehex_90_150_lh.stl",
+      "skin_mattehex_90_150_rh.stl"
+    ],
+    "track_90_250.stl": [
+      "skin_mattehex_90_250_lh.stl",
+      "skin_mattehex_90_250_rh.stl"
+    ],
+    "track_cross_150.stl": [
+      "skin_mattehex_cross_150.stl"
+    ],
+    "track_straight_100.stl": [
+      "skin_mattehex_straight_100.stl",
+      "skin_mattehex_straight_100_end.stl",
+      "skin_mattehex_straight_100_start.stl"
+    ],
+    "track_straight_150.stl": [
+      "skin_mattehex_straight_150.stl",
+      "skin_mattehex_straight_150_end.stl",
+      "skin_mattehex_straight_150_start.stl"
+    ],
+    "track_straight_200.stl": [
+      "skin_mattehex_straight_200.stl",
+      "skin_mattehex_straight_200_end.stl",
+      "skin_mattehex_straight_200_start.stl"
+    ],
+    "track_straight_250.stl": [
+      "skin_mattehex_straight_250.stl",
+      "skin_mattehex_straight_250_end.stl",
+      "skin_mattehex_straight_250_start.stl"
+    ],
+    "track_straight_300.stl": [
+      "skin_mattehex_straight_300.stl",
+      "skin_mattehex_straight_300_end.stl",
+      "skin_mattehex_straight_300_start.stl"
+    ],
+    "track_straight_350.stl": [
+      "skin_mattehex_straight_350.stl",
+      "skin_mattehex_straight_350_end.stl",
+      "skin_mattehex_straight_350_start.stl"
+    ],
+    "track_tee_150.stl": [
+      "skin_mattehex_tee_150.stl"
+    ],
+    "track_vitality_a_135.stl": [
+      "skin_mattehex_vitality_a_135_lh.stl",
+      "skin_mattehex_vitality_a_135_rh.stl"
+    ],
+    "track_vitality_a_675.stl": [
+      "skin_mattehex_vitality_a_675_lh.stl",
+      "skin_mattehex_vitality_a_675_rh.stl"
+    ],
+    "track_vitality_b_1425.stl": [
+      "skin_mattehex_vitality_b_1425_lh.stl",
+      "skin_mattehex_vitality_b_1425_rh.stl"
+    ],
+    "track_vitality_b_7125.stl": [
+      "skin_mattehex_vitality_b_7125_lh.stl",
+      "skin_mattehex_vitality_b_7125_rh.stl"
+    ],
+    "track_vitality_c_150.stl": [
+      "skin_mattehex_vitality_c_150_lh.stl",
+      "skin_mattehex_vitality_c_150_rh.stl"
+    ],
+    "track_vitality_c_75.stl": [
+      "skin_mattehex_vitality_c_75_lh.stl",
+      "skin_mattehex_vitality_c_75_rh.stl"
+    ],
+    "track_vitality_d_1575.stl": [
+      "skin_mattehex_vitality_d_1575_lh.stl",
+      "skin_mattehex_vitality_d_1575_rh.stl"
+    ],
+    "track_vitality_d_7875.stl": [
+      "skin_mattehex_vitality_d_7875_lh.stl",
+      "skin_mattehex_vitality_d_7875_rh.stl"
+    ],
+    "track_vitality_e_165.stl": [
+      "skin_mattehex_vitality_e_165_lh.stl",
+      "skin_mattehex_vitality_e_165_rh.stl"
+    ],
+    "track_vitality_e_825.stl": [
+      "skin_mattehex_vitality_e_825_lh.stl",
+      "skin_mattehex_vitality_e_825_rh.stl"
+    ]
+  },
+  "nautilus": {
+    "e_707_45_intside.stl": [
+      "skin_707_45_inside_nautilus_lh.stl",
+      "skin_707_45_inside_nautilus_rh.stl"
+    ],
+    "e_707_45_outside.stl": [
+      "skin_707_45_outside_nautilus_lh.stl",
+      "skin_707_45_outside_nautilus_rh.stl"
+    ],
+    "e_707_90_inside.stl": [
+      "skin_707_90_inside_nautilus_lh.stl",
+      "skin_707_90_inside_nautilus_rh.stl"
+    ],
+    "e_707_90_outside.stl": [
+      "skin_707_90_outside_nautilus_lh.stl",
+      "skin_707_90_outside_nautilus_rh.stl"
+    ],
+    "e_tangent_45_r100.stl": [
+      "skin_tangent_45_r100_nautilus_lh.stl",
+      "skin_tangent_45_r100_nautilus_rh.stl"
+    ],
+    "e_tangent_45_r175.stl": [
+      "skin_tangent_45_r175_nautilus_lh.stl",
+      "skin_tangent_45_r175_nautilus_rh.stl"
+    ],
+    "e_tangent_45_r225.stl": [
+      "skin_tangent_45_r225_nautilus_lh.stl",
+      "skin_tangent_45_r225_nautilus_rh.stl"
+    ],
+    "e_tangent_90_r100.stl": [
+      "skin_tangent_90_r100_nautilus_lh.stl",
+      "skin_tangent_90_r100_nautilus_rh.stl"
+    ],
+    "e_tangent_90_r175.stl": [
+      "skin_tangent_90_r175_nautilus_lh.stl",
+      "skin_tangent_90_r175_nautilus_rh.stl"
+    ],
+    "e_tangent_90_r225.stl": [
+      "skin_tangent_90_r225_nautilus_lh.stl",
+      "skin_tangent_90_r225_nautilus_rh.stl"
+    ],
+    "track_45_250.stl": [
+      "skin_nautilus_45_250_lh.stl",
+      "skin_nautilus_45_250_rh.stl"
+    ],
+    "track_90_250.stl": [
+      "skin_nautilus_90_250_lh.stl",
+      "skin_nautilus_90_250_rh.stl"
+    ],
+    "track_straight_100.stl": [
+      "skin_nautilus_straight_100.stl",
+      "skin_nautilus_straight_100_end.stl",
+      "skin_nautilus_straight_100_start.stl"
+    ],
+    "track_straight_150.stl": [
+      "skin_nautilus_straight_150.stl",
+      "skin_nautilus_straight_150_end.stl",
+      "skin_nautilus_straight_150_start.stl"
+    ],
+    "track_straight_200.stl": [
+      "skin_nautilus_straight_200.stl",
+      "skin_nautilus_straight_200_end.stl",
+      "skin_nautilus_straight_200_start.stl"
+    ],
+    "track_straight_250.stl": [
+      "skin_nautilus_straight_250.stl",
+      "skin_nautilus_straight_250_end.stl",
+      "skin_nautilus_straight_250_start.stl",
+      "skin_straight_nautilus_250_end.stl",
+      "skin_straight_nautilus_250_start.stl"
+    ],
+    "track_straight_300.stl": [
+      "skin_nautilus_straight_300.stl",
+      "skin_nautilus_straight_300_end.stl",
+      "skin_nautilus_straight_300_start.stl"
+    ],
+    "track_vitality_a_135.stl": [
+      "skin_nautilus_vitality_a_135_lh.stl",
+      "skin_nautilus_vitality_a_135_rh.stl"
+    ],
+    "track_vitality_a_675.stl": [
+      "skin_nautilus_vitality_a_675_lh.stl",
+      "skin_nautilus_vitality_a_675_rh.stl"
+    ],
+    "track_vitality_b_1425.stl": [
+      "skin_nautilus_vitality_b_1425_lh.stl",
+      "skin_nautilus_vitality_b_1425_rh.stl"
+    ],
+    "track_vitality_b_7125.stl": [
+      "skin_nautilus_vitality_b_7125_lh.stl",
+      "skin_nautilus_vitality_b_7125_rh.stl"
+    ],
+    "track_vitality_c_150.stl": [
+      "skin_nautilus_vitality_c_150_lh.stl",
+      "skin_nautilus_vitality_c_150_rh.stl"
+    ],
+    "track_vitality_c_75.stl": [
+      "skin_nautilus_vitality_c_75_lh.stl",
+      "skin_nautilus_vitality_c_75_rh.stl"
+    ],
+    "track_vitality_d_1575.stl": [
+      "skin_nautilus_vitality_d_1575_lh.stl",
+      "skin_nautilus_vitality_d_1575_rh.stl"
+    ],
+    "track_vitality_d_7875.stl": [
+      "skin_nautilus_vitality_d_7875_lh.stl",
+      "skin_nautilus_vitality_d_7875_rh.stl"
+    ],
+    "track_vitality_e_165.stl": [
+      "skin_nautilus_vitality_e_165_lh.stl",
+      "skin_nautilus_vitality_e_165_rh.stl"
+    ],
+    "track_vitality_e_825.stl": [
+      "skin_nautilus_vitality_e_825_lh.stl",
+      "skin_nautilus_vitality_e_825_rh.stl"
+    ]
+  }
+};
+const BAMBU_PROFILES = {
+  p1s: "{\n    \"accel_to_decel_enable\": \"0\",\n    \"accel_to_decel_factor\": \"50%\",\n    \"activate_air_filtration\": [\n        \"0\",\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"additional_cooling_fan_speed\": [\n        \"70\",\n        \"70\",\n        \"70\",\n        \"70\"\n    ],\n    \"apply_scarf_seam_on_circles\": \"1\",\n    \"auxiliary_fan\": \"1\",\n    \"bed_custom_model\": \"\",\n    \"bed_custom_texture\": \"\",\n    \"bed_exclude_area\": [\n        \"0x0\",\n        \"18x0\",\n        \"18x28\",\n        \"0x28\"\n    ],\n    \"bed_temperature_formula\": \"by_first_filament\",\n    \"before_layer_change_gcode\": \"\",\n    \"best_object_pos\": \"0.5,0.5\",\n    \"bottom_color_penetration_layers\": \"3\",\n    \"bottom_shell_layers\": \"3\",\n    \"bottom_shell_thickness\": \"0\",\n    \"bottom_surface_pattern\": \"monotonic\",\n    \"bridge_angle\": \"0\",\n    \"bridge_flow\": \"1\",\n    \"bridge_no_support\": \"0\",\n    \"bridge_speed\": [\n        \"50\"\n    ],\n    \"brim_object_gap\": \"0.1\",\n    \"brim_type\": \"auto_brim\",\n    \"brim_width\": \"5\",\n    \"chamber_temperatures\": [\n        \"0\",\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"change_filament_gcode\": \"M620 S[next_extruder]A\\nM204 S9000\\nG1 Z{max_layer_z + 3.0} F1200\\n\\nG1 X70 F21000\\nG1 Y245\\nG1 Y265 F3000\\nM400\\nM106 P1 S0\\nM106 P2 S0\\n{if old_filament_temp > 142 && next_extruder < 255}\\nM104 S[old_filament_temp]\\n{endif}\\n{if long_retractions_when_cut[previous_extruder]}\\nM620.11 S1 I[previous_extruder] E-{retraction_distances_when_cut[previous_extruder]} F{old_filament_e_feedrate}\\n{else}\\nM620.11 S0\\n{endif}\\nM400\\nG1 X90 F3000\\nG1 Y255 F4000\\nG1 X100 F5000\\nG1 X120 F15000\\nG1 X20 Y50 F21000\\nG1 Y-3\\n{if toolchange_count == 2}\\n; get travel path for change filament\\nM620.1 X[travel_point_1_x] Y[travel_point_1_y] F21000 P0\\nM620.1 X[travel_point_2_x] Y[travel_point_2_y] F21000 P1\\nM620.1 X[travel_point_3_x] Y[travel_point_3_y] F21000 P2\\n{endif}\\nM620.1 E F[old_filament_e_feedrate] T{nozzle_temperature_range_high[previous_extruder]}\\nT[next_extruder]\\nM620.1 E F[new_filament_e_feedrate] T{nozzle_temperature_range_high[next_extruder]}\\n\\n{if next_extruder < 255}\\n{if long_retractions_when_cut[previous_extruder]}\\nM620.11 S1 I[previous_extruder] E{retraction_distances_when_cut[previous_extruder]} F{old_filament_e_feedrate}\\nM628 S1\\nG92 E0\\nG1 E{retraction_distances_when_cut[previous_extruder]} F[old_filament_e_feedrate]\\nM400\\nM629 S1\\n{else}\\nM620.11 S0\\n{endif}\\nG92 E0\\n{if flush_length_1 > 1}\\nM83\\n; FLUSH_START\\n; always use highest temperature to flush\\nM400\\n{if filament_type[next_extruder] == \\\"PETG\\\"}\\nM109 S260\\n{elsif filament_type[next_extruder] == \\\"PVA\\\"}\\nM109 S210\\n{else}\\nM109 S[nozzle_temperature_range_high]\\n{endif}\\n{if flush_length_1 > 23.7}\\nG1 E23.7 F{old_filament_e_feedrate} ; do not need pulsatile flushing for start part\\nG1 E{(flush_length_1 - 23.7) * 0.02} F50\\nG1 E{(flush_length_1 - 23.7) * 0.23} F{old_filament_e_feedrate}\\nG1 E{(flush_length_1 - 23.7) * 0.02} F50\\nG1 E{(flush_length_1 - 23.7) * 0.23} F{new_filament_e_feedrate}\\nG1 E{(flush_length_1 - 23.7) * 0.02} F50\\nG1 E{(flush_length_1 - 23.7) * 0.23} F{new_filament_e_feedrate}\\nG1 E{(flush_length_1 - 23.7) * 0.02} F50\\nG1 E{(flush_length_1 - 23.7) * 0.23} F{new_filament_e_feedrate}\\n{else}\\nG1 E{flush_length_1} F{old_filament_e_feedrate}\\n{endif}\\n; FLUSH_END\\nG1 E-[old_retract_length_toolchange] F1800\\nG1 E[old_retract_length_toolchange] F300\\n{endif}\\n\\n{if flush_length_2 > 1}\\n\\nG91\\nG1 X3 F12000; move aside to extrude\\nG90\\nM83\\n\\n; FLUSH_START\\nG1 E{flush_length_2 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_2 * 0.02} F50\\nG1 E{flush_length_2 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_2 * 0.02} F50\\nG1 E{flush_length_2 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_2 * 0.02} F50\\nG1 E{flush_length_2 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_2 * 0.02} F50\\nG1 E{flush_length_2 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_2 * 0.02} F50\\n; FLUSH_END\\nG1 E-[new_retract_length_toolchange] F1800\\nG1 E[new_retract_length_toolchange] F300\\n{endif}\\n\\n{if flush_length_3 > 1}\\n\\nG91\\nG1 X3 F12000; move aside to extrude\\nG90\\nM83\\n\\n; FLUSH_START\\nG1 E{flush_length_3 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_3 * 0.02} F50\\nG1 E{flush_length_3 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_3 * 0.02} F50\\nG1 E{flush_length_3 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_3 * 0.02} F50\\nG1 E{flush_length_3 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_3 * 0.02} F50\\nG1 E{flush_length_3 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_3 * 0.02} F50\\n; FLUSH_END\\nG1 E-[new_retract_length_toolchange] F1800\\nG1 E[new_retract_length_toolchange] F300\\n{endif}\\n\\n{if flush_length_4 > 1}\\n\\nG91\\nG1 X3 F12000; move aside to extrude\\nG90\\nM83\\n\\n; FLUSH_START\\nG1 E{flush_length_4 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_4 * 0.02} F50\\nG1 E{flush_length_4 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_4 * 0.02} F50\\nG1 E{flush_length_4 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_4 * 0.02} F50\\nG1 E{flush_length_4 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_4 * 0.02} F50\\nG1 E{flush_length_4 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_4 * 0.02} F50\\n; FLUSH_END\\n{endif}\\n; FLUSH_START\\nM400\\nM109 S[new_filament_temp]\\nG1 E2 F{new_filament_e_feedrate} ;Compensate for filament spillage during waiting temperature\\n; FLUSH_END\\nM400\\nG92 E0\\nG1 E-[new_retract_length_toolchange] F1800\\nM106 P1 S255\\nM400 S3\\n\\nG1 X70 F5000\\nG1 X90 F3000\\nG1 Y255 F4000\\nG1 X105 F5000\\nG1 Y265 F5000\\nG1 X70 F10000\\nG1 X100 F5000\\nG1 X70 F10000\\nG1 X100 F5000\\n\\nG1 X70 F10000\\nG1 X80 F15000\\nG1 X60\\nG1 X80\\nG1 X60\\nG1 X80 ; shake to put down garbage\\nG1 X100 F5000\\nG1 X165 F15000; wipe and shake\\nG1 Y256 ; move Y to aside, prevent collision\\nM400\\nG1 Z{max_layer_z + 3.0} F3000\\n{if layer_z <= (initial_layer_print_height + 0.001)}\\nM204 S[initial_layer_acceleration]\\n{else}\\nM204 S[default_acceleration]\\n{endif}\\n{else}\\nG1 X[x_after_toolchange] Y[y_after_toolchange] Z[z_after_toolchange] F12000\\n{endif}\\nM621 S[next_extruder]A\\n\",\n    \"circle_compensation_manual_offset\": \"0\",\n    \"circle_compensation_speed\": [\n        \"200\",\n        \"200\",\n        \"200\",\n        \"200\"\n    ],\n    \"close_fan_the_first_x_layers\": [\n        \"1\",\n        \"1\",\n        \"1\",\n        \"1\"\n    ],\n    \"complete_print_exhaust_fan_speed\": [\n        \"70\",\n        \"70\",\n        \"70\",\n        \"70\"\n    ],\n    \"cool_plate_temp\": [\n        \"35\",\n        \"35\",\n        \"35\",\n        \"35\"\n    ],\n    \"cool_plate_temp_initial_layer\": [\n        \"35\",\n        \"35\",\n        \"35\",\n        \"35\"\n    ],\n    \"counter_coef_1\": [\n        \"0\",\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"counter_coef_2\": [\n        \"0.008\",\n        \"0.008\",\n        \"0.008\",\n        \"0.008\"\n    ],\n    \"counter_coef_3\": [\n        \"-0.041\",\n        \"-0.041\",\n        \"-0.041\",\n        \"-0.041\"\n    ],\n    \"counter_limit_max\": [\n        \"0.033\",\n        \"0.033\",\n        \"0.033\",\n        \"0.033\"\n    ],\n    \"counter_limit_min\": [\n        \"-0.035\",\n        \"-0.035\",\n        \"-0.035\",\n        \"-0.035\"\n    ],\n    \"curr_bed_type\": \"Textured PEI Plate\",\n    \"default_acceleration\": [\n        \"10000\"\n    ],\n    \"default_filament_colour\": [\n        \"\",\n        \"\",\n        \"\",\n        \"\"\n    ],\n    \"default_filament_profile\": [\n        \"Bambu PLA Basic @BBL X1C\"\n    ],\n    \"default_jerk\": \"0\",\n    \"default_nozzle_volume_type\": [\n        \"Standard\"\n    ],\n    \"default_print_profile\": \"0.20mm Standard @BBL X1C\",\n    \"deretraction_speed\": [\n        \"30\"\n    ],\n    \"detect_floating_vertical_shell\": \"1\",\n    \"detect_narrow_internal_solid_infill\": \"1\",\n    \"detect_overhang_wall\": \"1\",\n    \"detect_thin_wall\": \"0\",\n    \"diameter_limit\": [\n        \"50\",\n        \"50\",\n        \"50\",\n        \"50\"\n    ],\n    \"different_settings_to_system\": [\n        \"enable_support\",\n        \"\",\n        \"\",\n        \"\",\n        \"\",\n        \"\"\n    ],\n    \"draft_shield\": \"disabled\",\n    \"during_print_exhaust_fan_speed\": [\n        \"70\",\n        \"70\",\n        \"70\",\n        \"70\"\n    ],\n    \"elefant_foot_compensation\": \"0.15\",\n    \"enable_arc_fitting\": \"1\",\n    \"enable_circle_compensation\": \"0\",\n    \"enable_long_retraction_when_cut\": \"2\",\n    \"enable_overhang_bridge_fan\": [\n        \"1\",\n        \"1\",\n        \"1\",\n        \"1\"\n    ],\n    \"enable_overhang_speed\": [\n        \"1\"\n    ],\n    \"enable_pre_heating\": \"0\",\n    \"enable_pressure_advance\": [\n        \"0\",\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"enable_prime_tower\": \"1\",\n    \"enable_support\": \"1\",\n    \"enforce_support_layers\": \"0\",\n    \"eng_plate_temp\": [\n        \"0\",\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"eng_plate_temp_initial_layer\": [\n        \"0\",\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"ensure_vertical_shell_thickness\": \"enabled\",\n    \"exclude_object\": \"1\",\n    \"extruder_ams_count\": [\n        \"1#0|4#0\",\n        \"1#0|4#0\"\n    ],\n    \"extruder_clearance_dist_to_rod\": \"33\",\n    \"extruder_clearance_height_to_lid\": \"90\",\n    \"extruder_clearance_height_to_rod\": \"34\",\n    \"extruder_clearance_max_radius\": \"68\",\n    \"extruder_colour\": [\n        \"#018001\"\n    ],\n    \"extruder_offset\": [\n        \"0x2\"\n    ],\n    \"extruder_printable_area\": [],\n    \"extruder_printable_height\": [],\n    \"extruder_type\": [\n        \"Direct Drive\"\n    ],\n    \"extruder_variant_list\": [\n        \"Direct Drive Standard\"\n    ],\n    \"fan_cooling_layer_time\": [\n        \"100\",\n        \"100\",\n        \"100\",\n        \"100\"\n    ],\n    \"fan_max_speed\": [\n        \"100\",\n        \"100\",\n        \"100\",\n        \"100\"\n    ],\n    \"fan_min_speed\": [\n        \"100\",\n        \"100\",\n        \"100\",\n        \"100\"\n    ],\n    \"filament_adhesiveness_category\": [\n        \"100\",\n        \"100\",\n        \"100\",\n        \"100\"\n    ],\n    \"filament_change_length\": [\n        \"10\",\n        \"5\",\n        \"5\",\n        \"10\"\n    ],\n    \"filament_colour\": [\n        \"#9B9EA0\",\n        \"#FFFFFF\",\n        \"#F4EE2A\",\n        \"#F95D73\"\n    ],\n    \"filament_cost\": [\n        \"24.99\",\n        \"24.99\",\n        \"24.99\",\n        \"20\"\n    ],\n    \"filament_density\": [\n        \"1.32\",\n        \"1.26\",\n        \"1.26\",\n        \"1.24\"\n    ],\n    \"filament_deretraction_speed\": [\n        \"nil\",\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_diameter\": [\n        \"1.75\",\n        \"1.75\",\n        \"1.75\",\n        \"1.75\"\n    ],\n    \"filament_end_gcode\": [\n        \"; filament end gcode \\n\\n\",\n        \"; filament end gcode \\n\\n\",\n        \"; filament end gcode \\n\\n\",\n        \"; filament end gcode \\n\\n\"\n    ],\n    \"filament_extruder_variant\": [\n        \"Direct Drive Standard\",\n        \"Direct Drive Standard\",\n        \"Direct Drive Standard\",\n        \"Direct Drive Standard\"\n    ],\n    \"filament_flow_ratio\": [\n        \"0.98\",\n        \"0.98\",\n        \"0.98\",\n        \"0.98\"\n    ],\n    \"filament_flush_temp\": [\n        \"0\",\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"filament_flush_volumetric_speed\": [\n        \"0\",\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"filament_ids\": [\n        \"GFA01\",\n        \"GFA00\",\n        \"GFA00\",\n        \"GFL96\"\n    ],\n    \"filament_is_support\": [\n        \"0\",\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"filament_long_retractions_when_cut\": [\n        \"1\",\n        \"1\",\n        \"1\",\n        \"nil\"\n    ],\n    \"filament_map\": [\n        \"1\",\n        \"1\",\n        \"1\",\n        \"1\"\n    ],\n    \"filament_map_mode\": \"Auto For Flush\",\n    \"filament_max_volumetric_speed\": [\n        \"22\",\n        \"21\",\n        \"21\",\n        \"7.5\"\n    ],\n    \"filament_minimal_purge_on_wipe_tower\": [\n        \"15\",\n        \"15\",\n        \"15\",\n        \"15\"\n    ],\n    \"filament_notes\": \"\",\n    \"filament_pre_cooling_temperature\": [\n        \"0\",\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"filament_prime_volume\": [\n        \"45\",\n        \"30\",\n        \"30\",\n        \"45\"\n    ],\n    \"filament_printable\": [\n        \"3\",\n        \"3\",\n        \"3\",\n        \"3\"\n    ],\n    \"filament_ramming_travel_time\": [\n        \"0\",\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"filament_ramming_volumetric_speed\": [\n        \"-1\",\n        \"-1\",\n        \"-1\",\n        \"-1\"\n    ],\n    \"filament_retract_before_wipe\": [\n        \"nil\",\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_retract_restart_extra\": [\n        \"nil\",\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_retract_when_changing_layer\": [\n        \"nil\",\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_retraction_distances_when_cut\": [\n        \"18\",\n        \"18\",\n        \"18\",\n        \"nil\"\n    ],\n    \"filament_retraction_length\": [\n        \"nil\",\n        \"nil\",\n        \"nil\",\n        \"0.5\"\n    ],\n    \"filament_retraction_minimum_travel\": [\n        \"nil\",\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_retraction_speed\": [\n        \"nil\",\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_scarf_gap\": [\n        \"0%\",\n        \"0%\",\n        \"0%\",\n        \"15%\"\n    ],\n    \"filament_scarf_height\": [\n        \"5%\",\n        \"10%\",\n        \"10%\",\n        \"10%\"\n    ],\n    \"filament_scarf_length\": [\n        \"10\",\n        \"10\",\n        \"10\",\n        \"10\"\n    ],\n    \"filament_scarf_seam_type\": [\n        \"none\",\n        \"none\",\n        \"none\",\n        \"none\"\n    ],\n    \"filament_self_index\": [\n        \"1\",\n        \"2\",\n        \"3\",\n        \"4\"\n    ],\n    \"filament_settings_id\": [\n        \"Bambu PLA Matte @BBL X1C\",\n        \"Bambu PLA Basic @BBL X1C\",\n        \"Bambu PLA Basic @BBL X1C\",\n        \"Generic PLA Silk\"\n    ],\n    \"filament_shrink\": [\n        \"100%\",\n        \"100%\",\n        \"100%\",\n        \"100%\"\n    ],\n    \"filament_soluble\": [\n        \"0\",\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"filament_start_gcode\": [\n        \"; filament start gcode\\n{if  (bed_temperature[current_extruder] >55)||(bed_temperature_initial_layer[current_extruder] >55)}M106 P3 S200\\n{elsif(bed_temperature[current_extruder] >50)||(bed_temperature_initial_layer[current_extruder] >50)}M106 P3 S150\\n{elsif(bed_temperature[current_extruder] >45)||(bed_temperature_initial_layer[current_extruder] >45)}M106 P3 S50\\n{endif}\\nM142 P1 R35 S40\\n{if activate_air_filtration[current_extruder] && support_air_filtration}\\nM106 P3 S{during_print_exhaust_fan_speed_num[current_extruder]} \\n{endif}\",\n        \"; filament start gcode\\n{if  (bed_temperature[current_extruder] >55)||(bed_temperature_initial_layer[current_extruder] >55)}M106 P3 S200\\n{elsif(bed_temperature[current_extruder] >50)||(bed_temperature_initial_layer[current_extruder] >50)}M106 P3 S150\\n{elsif(bed_temperature[current_extruder] >45)||(bed_temperature_initial_layer[current_extruder] >45)}M106 P3 S50\\n{endif}\\nM142 P1 R35 S40\\n{if activate_air_filtration[current_extruder] && support_air_filtration}\\nM106 P3 S{during_print_exhaust_fan_speed_num[current_extruder]} \\n{endif}\",\n        \"; filament start gcode\\n{if  (bed_temperature[current_extruder] >55)||(bed_temperature_initial_layer[current_extruder] >55)}M106 P3 S200\\n{elsif(bed_temperature[current_extruder] >50)||(bed_temperature_initial_layer[current_extruder] >50)}M106 P3 S150\\n{elsif(bed_temperature[current_extruder] >45)||(bed_temperature_initial_layer[current_extruder] >45)}M106 P3 S50\\n{endif}\\nM142 P1 R35 S40\\n{if activate_air_filtration[current_extruder] && support_air_filtration}\\nM106 P3 S{during_print_exhaust_fan_speed_num[current_extruder]} \\n{endif}\",\n        \"; filament start gcode\\n{if  (bed_temperature[current_extruder] >55)||(bed_temperature_initial_layer[current_extruder] >55)}M106 P3 S200\\n{elsif(bed_temperature[current_extruder] >50)||(bed_temperature_initial_layer[current_extruder] >50)}M106 P3 S150\\n{elsif(bed_temperature[current_extruder] >45)||(bed_temperature_initial_layer[current_extruder] >45)}M106 P3 S50\\n{endif}\\n\\n{if activate_air_filtration[current_extruder] && support_air_filtration}\\nM106 P3 S{during_print_exhaust_fan_speed_num[current_extruder]} \\n{endif}\"\n    ],\n    \"filament_type\": [\n        \"PLA\",\n        \"PLA\",\n        \"PLA\",\n        \"PLA\"\n    ],\n    \"filament_vendor\": [\n        \"Bambu Lab\",\n        \"Bambu Lab\",\n        \"Bambu Lab\",\n        \"Generic\"\n    ],\n    \"filament_wipe\": [\n        \"nil\",\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_wipe_distance\": [\n        \"nil\",\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_z_hop\": [\n        \"nil\",\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_z_hop_types\": [\n        \"nil\",\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filename_format\": \"{input_filename_base}_{filament_type[0]}_{print_time}.gcode\",\n    \"filter_out_gap_fill\": \"0\",\n    \"first_layer_print_sequence\": [\n        \"0\"\n    ],\n    \"flush_into_infill\": \"0\",\n    \"flush_into_objects\": \"0\",\n    \"flush_into_support\": \"1\",\n    \"flush_multiplier\": [\n        \"1\"\n    ],\n    \"flush_volumes_matrix\": [\n        \"0\",\n        \"351\",\n        \"402\",\n        \"209\",\n        \"123\",\n        \"0\",\n        \"251\",\n        \"224\",\n        \"242\",\n        \"346\",\n        \"0\",\n        \"256\",\n        \"302\",\n        \"512\",\n        \"472\",\n        \"0\"\n    ],\n    \"flush_volumes_vector\": [\n        \"140\",\n        \"140\",\n        \"140\",\n        \"140\",\n        \"140\",\n        \"140\",\n        \"140\",\n        \"140\"\n    ],\n    \"from\": \"project\",\n    \"full_fan_speed_layer\": [\n        \"0\",\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"fuzzy_skin\": \"none\",\n    \"fuzzy_skin_point_distance\": \"0.8\",\n    \"fuzzy_skin_thickness\": \"0.3\",\n    \"gap_infill_speed\": [\n        \"250\"\n    ],\n    \"gcode_add_line_number\": \"0\",\n    \"gcode_flavor\": \"marlin\",\n    \"grab_length\": [\n        \"0\"\n    ],\n    \"has_scarf_joint_seam\": \"0\",\n    \"head_wrap_detect_zone\": [],\n    \"hole_coef_1\": [\n        \"0\",\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"hole_coef_2\": [\n        \"-0.008\",\n        \"-0.008\",\n        \"-0.008\",\n        \"-0.008\"\n    ],\n    \"hole_coef_3\": [\n        \"0.23415\",\n        \"0.23415\",\n        \"0.23415\",\n        \"0.23415\"\n    ],\n    \"hole_limit_max\": [\n        \"0.22\",\n        \"0.22\",\n        \"0.22\",\n        \"0.22\"\n    ],\n    \"hole_limit_min\": [\n        \"0.088\",\n        \"0.088\",\n        \"0.088\",\n        \"0.088\"\n    ],\n    \"host_type\": \"octoprint\",\n    \"hot_plate_temp\": [\n        \"55\",\n        \"55\",\n        \"55\",\n        \"55\"\n    ],\n    \"hot_plate_temp_initial_layer\": [\n        \"55\",\n        \"55\",\n        \"55\",\n        \"55\"\n    ],\n    \"hotend_cooling_rate\": [\n        \"2\"\n    ],\n    \"hotend_heating_rate\": [\n        \"2\"\n    ],\n    \"impact_strength_z\": [\n        \"6.6\",\n        \"13.8\",\n        \"13.8\",\n        \"10\"\n    ],\n    \"independent_support_layer_height\": \"1\",\n    \"infill_combination\": \"0\",\n    \"infill_direction\": \"45\",\n    \"infill_jerk\": \"9\",\n    \"infill_lock_depth\": \"1\",\n    \"infill_rotate_step\": \"0\",\n    \"infill_shift_step\": \"0.4\",\n    \"infill_wall_overlap\": \"15%\",\n    \"initial_layer_acceleration\": [\n        \"500\"\n    ],\n    \"initial_layer_flow_ratio\": \"1\",\n    \"initial_layer_infill_speed\": [\n        \"105\"\n    ],\n    \"initial_layer_jerk\": \"9\",\n    \"initial_layer_line_width\": \"0.5\",\n    \"initial_layer_print_height\": \"0.2\",\n    \"initial_layer_speed\": [\n        \"50\"\n    ],\n    \"initial_layer_travel_acceleration\": [\n        \"6000\"\n    ],\n    \"inner_wall_acceleration\": [\n        \"0\"\n    ],\n    \"inner_wall_jerk\": \"9\",\n    \"inner_wall_line_width\": \"0.45\",\n    \"inner_wall_speed\": [\n        \"300\"\n    ],\n    \"interface_shells\": \"0\",\n    \"interlocking_beam\": \"0\",\n    \"interlocking_beam_layer_count\": \"2\",\n    \"interlocking_beam_width\": \"0.8\",\n    \"interlocking_boundary_avoidance\": \"2\",\n    \"interlocking_depth\": \"2\",\n    \"interlocking_orientation\": \"22.5\",\n    \"internal_bridge_support_thickness\": \"0.8\",\n    \"internal_solid_infill_line_width\": \"0.42\",\n    \"internal_solid_infill_pattern\": \"zig-zag\",\n    \"internal_solid_infill_speed\": [\n        \"250\"\n    ],\n    \"ironing_direction\": \"45\",\n    \"ironing_flow\": \"10%\",\n    \"ironing_inset\": \"0.21\",\n    \"ironing_pattern\": \"zig-zag\",\n    \"ironing_spacing\": \"0.15\",\n    \"ironing_speed\": \"30\",\n    \"ironing_type\": \"no ironing\",\n    \"is_infill_first\": \"0\",\n    \"layer_change_gcode\": \"; layer num/total_layer_count: {layer_num+1}/[total_layer_count]\\n; update layer progress\\nM73 L{layer_num+1}\\nM991 S0 P{layer_num} ;notify layer change\",\n    \"layer_height\": \"0.2\",\n    \"line_width\": \"0.42\",\n    \"long_retractions_when_cut\": [\n        \"0\"\n    ],\n    \"long_retractions_when_ec\": [\n        \"0\",\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"machine_end_gcode\": \";===== date: 20230428 =====================\\nM400 ; wait for buffer to clear\\nG92 E0 ; zero the extruder\\nG1 E-0.8 F1800 ; retract\\nG1 Z{max_layer_z + 0.5} F900 ; lower z a little\\nG1 X65 Y245 F12000 ; move to safe pos \\nG1 Y265 F3000\\n\\nG1 X65 Y245 F12000\\nG1 Y265 F3000\\nM140 S0 ; turn off bed\\nM106 S0 ; turn off fan\\nM106 P2 S0 ; turn off remote part cooling fan\\nM106 P3 S0 ; turn off chamber cooling fan\\n\\nG1 X100 F12000 ; wipe\\n; pull back filament to AMS\\nM620 S255\\nG1 X20 Y50 F12000\\nG1 Y-3\\nT255\\nG1 X65 F12000\\nG1 Y265\\nG1 X100 F12000 ; wipe\\nM621 S255\\nM104 S0 ; turn off hotend\\n\\nM622.1 S1 ; for prev firware, default turned on\\nM1002 judge_flag timelapse_record_flag\\nM622 J1\\n    M400 ; wait all motion done\\n    M991 S0 P-1 ;end smooth timelapse at safe pos\\n    M400 S3 ;wait for last picture to be taken\\nM623; end of \\\"timelapse_record_flag\\\"\\n\\nM400 ; wait all motion done\\nM17 S\\nM17 Z0.4 ; lower z motor current to reduce impact if there is something in the bottom\\n{if (max_layer_z + 100.0) < 250}\\n    G1 Z{max_layer_z + 100.0} F600\\n    G1 Z{max_layer_z +98.0}\\n{else}\\n    G1 Z250 F600\\n    G1 Z248\\n{endif}\\nM400 P100\\nM17 R ; restore z current\\n\\nM220 S100  ; Reset feedrate magnitude\\nM201.2 K1.0 ; Reset acc magnitude\\nM73.2   R1.0 ;Reset left time magnitude\\nM1002 set_gcode_claim_speed_level : 0\\n\\nM17 X0.8 Y0.8 Z0.5 ; lower motor current to 45% power\\n\",\n    \"machine_load_filament_time\": \"29\",\n    \"machine_max_acceleration_e\": [\n        \"5000\",\n        \"5000\"\n    ],\n    \"machine_max_acceleration_extruding\": [\n        \"20000\",\n        \"20000\"\n    ],\n    \"machine_max_acceleration_retracting\": [\n        \"5000\",\n        \"5000\"\n    ],\n    \"machine_max_acceleration_travel\": [\n        \"9000\",\n        \"9000\"\n    ],\n    \"machine_max_acceleration_x\": [\n        \"20000\",\n        \"20000\"\n    ],\n    \"machine_max_acceleration_y\": [\n        \"20000\",\n        \"20000\"\n    ],\n    \"machine_max_acceleration_z\": [\n        \"500\",\n        \"200\"\n    ],\n    \"machine_max_jerk_e\": [\n        \"2.5\",\n        \"2.5\"\n    ],\n    \"machine_max_jerk_x\": [\n        \"9\",\n        \"9\"\n    ],\n    \"machine_max_jerk_y\": [\n        \"9\",\n        \"9\"\n    ],\n    \"machine_max_jerk_z\": [\n        \"3\",\n        \"3\"\n    ],\n    \"machine_max_speed_e\": [\n        \"30\",\n        \"30\"\n    ],\n    \"machine_max_speed_x\": [\n        \"500\",\n        \"200\"\n    ],\n    \"machine_max_speed_y\": [\n        \"500\",\n        \"200\"\n    ],\n    \"machine_max_speed_z\": [\n        \"20\",\n        \"20\"\n    ],\n    \"machine_min_extruding_rate\": [\n        \"0\",\n        \"0\"\n    ],\n    \"machine_min_travel_rate\": [\n        \"0\",\n        \"0\"\n    ],\n    \"machine_pause_gcode\": \"M400 U1\",\n    \"machine_start_gcode\": \";===== machine: P1S ========================\\n;===== date: 20231107 =====================\\n;===== turn on the HB fan & MC board fan =================\\nM104 S75 ;set extruder temp to turn on the HB fan and prevent filament oozing from nozzle\\nM710 A1 S255 ;turn on MC fan by default(P1S)\\n;===== reset machine status =================\\nM290 X40 Y40 Z2.6666666\\nG91\\nM17 Z0.4 ; lower the z-motor current\\nG380 S2 Z30 F300 ; G380 is same as G38; lower the hotbed , to prevent the nozzle is below the hotbed\\nG380 S2 Z-25 F300 ;\\nG1 Z5 F300;\\nG90\\nM17 X1.2 Y1.2 Z0.75 ; reset motor current to default\\nM960 S5 P1 ; turn on logo lamp\\nG90\\nM220 S100 ;Reset Feedrate\\nM221 S100 ;Reset Flowrate\\nM73.2   R1.0 ;Reset left time magnitude\\nM1002 set_gcode_claim_speed_level : 5\\nM221 X0 Y0 Z0 ; turn off soft endstop to prevent protential logic problem\\nG29.1 Z{+0.0} ; clear z-trim value first\\nM204 S10000 ; init ACC set to 10m/s^2\\n\\n;===== heatbed preheat ====================\\nM1002 gcode_claim_action : 2\\nM140 S[bed_temperature_initial_layer_single] ;set bed temp\\nM190 S[bed_temperature_initial_layer_single] ;wait for bed temp\\n\\n\\n\\n;=============turn on fans to prevent PLA jamming=================\\n{if filament_type[initial_extruder]==\\\"PLA\\\"}\\n    {if (bed_temperature[initial_extruder] >45)||(bed_temperature_initial_layer[initial_extruder] >45)}\\n    M106 P3 S180\\n    {endif};Prevent PLA from jamming\\n{endif}\\nM106 P2 S100 ; turn on big fan ,to cool down toolhead\\n\\n;===== prepare print temperature and material ==========\\nM104 S[nozzle_temperature_initial_layer] ;set extruder temp\\nG91\\nG0 Z10 F1200\\nG90\\nG28 X\\nM975 S1 ; turn on\\nG1 X60 F12000\\nG1 Y245\\nG1 Y265 F3000\\nM620 M\\nM620 S[initial_extruder]A   ; switch material if AMS exist\\n    M109 S[nozzle_temperature_initial_layer]\\n    G1 X120 F12000\\n\\n    G1 X20 Y50 F12000\\n    G1 Y-3\\n    T[initial_extruder]\\n    G1 X54 F12000\\n    G1 Y265\\n    M400\\nM621 S[initial_extruder]A\\nM620.1 E F{filament_max_volumetric_speed[initial_extruder]/2.4053*60} T{nozzle_temperature_range_high[initial_extruder]}\\n\\n\\nM412 S1 ; ===turn on filament runout detection===\\n\\nM109 S250 ;set nozzle to common flush temp\\nM106 P1 S0\\nG92 E0\\nG1 E50 F200\\nM400\\nM104 S[nozzle_temperature_initial_layer]\\nG92 E0\\nG1 E50 F200\\nM400\\nM106 P1 S255\\nG92 E0\\nG1 E5 F300\\nM109 S{nozzle_temperature_initial_layer[initial_extruder]-20} ; drop nozzle temp, make filament shink a bit\\nG92 E0\\nG1 E-0.5 F300\\n\\nG1 X70 F9000\\nG1 X76 F15000\\nG1 X65 F15000\\nG1 X76 F15000\\nG1 X65 F15000; shake to put down garbage\\nG1 X80 F6000\\nG1 X95 F15000\\nG1 X80 F15000\\nG1 X165 F15000; wipe and shake\\nM400\\nM106 P1 S0\\n;===== prepare print temperature and material end =====\\n\\n\\n;===== wipe nozzle ===============================\\nM1002 gcode_claim_action : 14\\nM975 S1\\nM106 S255\\nG1 X65 Y230 F18000\\nG1 Y264 F6000\\nM109 S{nozzle_temperature_initial_layer[initial_extruder]-20}\\nG1 X100 F18000 ; first wipe mouth\\n\\nG0 X135 Y253 F20000  ; move to exposed steel surface edge\\nG28 Z P0 T300; home z with low precision,permit 300deg temperature\\nG29.2 S0 ; turn off ABL\\nG0 Z5 F20000\\n\\nG1 X60 Y265\\nG92 E0\\nG1 E-0.5 F300 ; retrack more\\nG1 X100 F5000; second wipe mouth\\nG1 X70 F15000\\nG1 X100 F5000\\nG1 X70 F15000\\nG1 X100 F5000\\nG1 X70 F15000\\nG1 X100 F5000\\nG1 X70 F15000\\nG1 X90 F5000\\nG0 X128 Y261 Z-1.5 F20000  ; move to exposed steel surface and stop the nozzle\\nM104 S140 ; set temp down to heatbed acceptable\\nM106 S255 ; turn on fan (G28 has turn off fan)\\n\\nM221 S; push soft endstop status\\nM221 Z0 ;turn off Z axis endstop\\nG0 Z0.5 F20000\\nG0 X125 Y259.5 Z-1.01\\nG0 X131 F211\\nG0 X124\\nG0 Z0.5 F20000\\nG0 X125 Y262.5\\nG0 Z-1.01\\nG0 X131 F211\\nG0 X124\\nG0 Z0.5 F20000\\nG0 X125 Y260.0\\nG0 Z-1.01\\nG0 X131 F211\\nG0 X124\\nG0 Z0.5 F20000\\nG0 X125 Y262.0\\nG0 Z-1.01\\nG0 X131 F211\\nG0 X124\\nG0 Z0.5 F20000\\nG0 X125 Y260.5\\nG0 Z-1.01\\nG0 X131 F211\\nG0 X124\\nG0 Z0.5 F20000\\nG0 X125 Y261.5\\nG0 Z-1.01\\nG0 X131 F211\\nG0 X124\\nG0 Z0.5 F20000\\nG0 X125 Y261.0\\nG0 Z-1.01\\nG0 X131 F211\\nG0 X124\\nG0 X128\\nG2 I0.5 J0 F300\\nG2 I0.5 J0 F300\\nG2 I0.5 J0 F300\\nG2 I0.5 J0 F300\\n\\nM109 S140 ; wait nozzle temp down to heatbed acceptable\\nG2 I0.5 J0 F3000\\nG2 I0.5 J0 F3000\\nG2 I0.5 J0 F3000\\nG2 I0.5 J0 F3000\\n\\nM221 R; pop softend status\\nG1 Z10 F1200\\nM400\\nG1 Z10\\nG1 F30000\\nG1 X230 Y15\\nG29.2 S1 ; turn on ABL\\n;G28 ; home again after hard wipe mouth\\nM106 S0 ; turn off fan , too noisy\\n;===== wipe nozzle end ================================\\n\\n\\n;===== bed leveling ==================================\\nM1002 judge_flag g29_before_print_flag\\nM622 J1\\n\\n    M1002 gcode_claim_action : 1\\n    G29 A X{first_layer_print_min[0]} Y{first_layer_print_min[1]} I{first_layer_print_size[0]} J{first_layer_print_size[1]}\\n    M400\\n    M500 ; save cali data\\n\\nM623\\n;===== bed leveling end ================================\\n\\n;===== home after wipe mouth============================\\nM1002 judge_flag g29_before_print_flag\\nM622 J0\\n\\n    M1002 gcode_claim_action : 13\\n    G28\\n\\nM623\\n;===== home after wipe mouth end =======================\\n\\nM975 S1 ; turn on vibration supression\\n\\n\\n;=============turn on fans to prevent PLA jamming=================\\n{if filament_type[initial_extruder]==\\\"PLA\\\"}\\n    {if (bed_temperature[initial_extruder] >45)||(bed_temperature_initial_layer[initial_extruder] >45)}\\n    M106 P3 S180\\n    {endif};Prevent PLA from jamming\\n{endif}\\nM106 P2 S100 ; turn on big fan ,to cool down toolhead\\n\\n\\nM104 S{nozzle_temperature_initial_layer[initial_extruder]} ; set extrude temp earlier, to reduce wait time\\n\\n;===== mech mode fast check============================\\nG1 X128 Y128 Z10 F20000\\nM400 P200\\nM970.3 Q1 A7 B30 C80  H15 K0\\nM974 Q1 S2 P0\\n\\nG1 X128 Y128 Z10 F20000\\nM400 P200\\nM970.3 Q0 A7 B30 C90 Q0 H15 K0\\nM974 Q0 S2 P0\\n\\nM975 S1\\nG1 F30000\\nG1 X230 Y15\\nG28 X ; re-home XY\\n;===== fmech mode fast check============================\\n\\n\\n;===== nozzle load line ===============================\\nM975 S1\\nG90\\nM83\\nT1000\\nG1 X18.0 Y1.0 Z0.8 F18000;Move to start position\\nM109 S{nozzle_temperature_initial_layer[initial_extruder]}\\nG1 Z0.2\\nG0 E2 F300\\nG0 X240 E15 F{outer_wall_volumetric_speed/(0.3*0.5)     * 60}\\nG0 Y11 E0.700 F{outer_wall_volumetric_speed/(0.3*0.5)/ 4 * 60}\\nG0 X239.5\\nG0 E0.2\\nG0 Y1.5 E0.700\\nG0 X18 E15 F{outer_wall_volumetric_speed/(0.3*0.5)     * 60}\\nM400\\n\\n;===== for Textured PEI Plate , lower the nozzle as the nozzle was touching topmost of the texture when homing ==\\n;curr_bed_type={curr_bed_type}\\n{if curr_bed_type==\\\"Textured PEI Plate\\\"}\\nG29.1 Z{-0.04} ; for Textured PEI Plate\\n{endif}\\n;========turn off light and wait extrude temperature =============\\nM1002 gcode_claim_action : 0\\nM106 S0 ; turn off fan\\nM106 P2 S0 ; turn off big fan\\nM106 P3 S0 ; turn off chamber fan\\n\\nM975 S1 ; turn on mech mode supression\\n\",\n    \"machine_switch_extruder_time\": \"0\",\n    \"machine_unload_filament_time\": \"28\",\n    \"master_extruder_id\": \"1\",\n    \"max_bridge_length\": \"0\",\n    \"max_layer_height\": [\n        \"0.28\"\n    ],\n    \"max_travel_detour_distance\": \"0\",\n    \"min_bead_width\": \"85%\",\n    \"min_feature_size\": \"25%\",\n    \"min_layer_height\": [\n        \"0.08\"\n    ],\n    \"minimum_sparse_infill_area\": \"15\",\n    \"mmu_segmented_region_interlocking_depth\": \"0\",\n    \"mmu_segmented_region_max_width\": \"0\",\n    \"name\": \"project_settings\",\n    \"nozzle_diameter\": [\n        \"0.4\"\n    ],\n    \"nozzle_height\": \"4.2\",\n    \"nozzle_temperature\": [\n        \"220\",\n        \"220\",\n        \"220\",\n        \"220\"\n    ],\n    \"nozzle_temperature_initial_layer\": [\n        \"220\",\n        \"220\",\n        \"220\",\n        \"220\"\n    ],\n    \"nozzle_temperature_range_high\": [\n        \"240\",\n        \"240\",\n        \"240\",\n        \"240\"\n    ],\n    \"nozzle_temperature_range_low\": [\n        \"190\",\n        \"190\",\n        \"190\",\n        \"190\"\n    ],\n    \"nozzle_type\": [\n        \"stainless_steel\"\n    ],\n    \"nozzle_volume\": [\n        \"107\"\n    ],\n    \"nozzle_volume_type\": [\n        \"Standard\"\n    ],\n    \"only_one_wall_first_layer\": \"0\",\n    \"ooze_prevention\": \"0\",\n    \"other_layers_print_sequence\": [\n        \"0\"\n    ],\n    \"other_layers_print_sequence_nums\": \"0\",\n    \"outer_wall_acceleration\": [\n        \"5000\"\n    ],\n    \"outer_wall_jerk\": \"9\",\n    \"outer_wall_line_width\": \"0.42\",\n    \"outer_wall_speed\": [\n        \"200\"\n    ],\n    \"overhang_1_4_speed\": [\n        \"0\"\n    ],\n    \"overhang_2_4_speed\": [\n        \"50\"\n    ],\n    \"overhang_3_4_speed\": [\n        \"30\"\n    ],\n    \"overhang_4_4_speed\": [\n        \"10\"\n    ],\n    \"overhang_fan_speed\": [\n        \"100\",\n        \"100\",\n        \"100\",\n        \"100\"\n    ],\n    \"overhang_fan_threshold\": [\n        \"50%\",\n        \"50%\",\n        \"50%\",\n        \"50%\"\n    ],\n    \"overhang_threshold_participating_cooling\": [\n        \"95%\",\n        \"95%\",\n        \"95%\",\n        \"95%\"\n    ],\n    \"overhang_totally_speed\": [\n        \"10\"\n    ],\n    \"physical_extruder_map\": [\n        \"0\"\n    ],\n    \"post_process\": [],\n    \"pre_start_fan_time\": [\n        \"0\",\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"precise_outer_wall\": \"0\",\n    \"precise_z_height\": \"0\",\n    \"pressure_advance\": [\n        \"0.02\",\n        \"0.02\",\n        \"0.02\",\n        \"0.02\"\n    ],\n    \"prime_tower_brim_width\": \"3\",\n    \"prime_tower_enable_framework\": \"0\",\n    \"prime_tower_extra_rib_length\": \"0\",\n    \"prime_tower_fillet_wall\": \"1\",\n    \"prime_tower_flat_ironing\": \"0\",\n    \"prime_tower_infill_gap\": \"150%\",\n    \"prime_tower_lift_height\": \"-1\",\n    \"prime_tower_lift_speed\": \"90\",\n    \"prime_tower_max_speed\": \"90\",\n    \"prime_tower_rib_wall\": \"1\",\n    \"prime_tower_rib_width\": \"8\",\n    \"prime_tower_skip_points\": \"1\",\n    \"prime_tower_width\": \"35\",\n    \"print_compatible_printers\": [\n        \"Bambu Lab X1 Carbon 0.4 nozzle\",\n        \"Bambu Lab X1 0.4 nozzle\",\n        \"Bambu Lab P1S 0.4 nozzle\",\n        \"Bambu Lab X1E 0.4 nozzle\"\n    ],\n    \"print_extruder_id\": [\n        \"1\"\n    ],\n    \"print_extruder_variant\": [\n        \"Direct Drive Standard\"\n    ],\n    \"print_flow_ratio\": \"1\",\n    \"print_sequence\": \"by layer\",\n    \"print_settings_id\": \"0.20mm Standard @BBL X1C\",\n    \"printable_area\": [\n        \"0x0\",\n        \"256x0\",\n        \"256x256\",\n        \"0x256\"\n    ],\n    \"printable_height\": \"250\",\n    \"printer_extruder_id\": [\n        \"1\"\n    ],\n    \"printer_extruder_variant\": [\n        \"Direct Drive Standard\"\n    ],\n    \"printer_model\": \"Bambu Lab P1S\",\n    \"printer_notes\": \"\",\n    \"printer_settings_id\": \"Bambu Lab P1S 0.4 nozzle\",\n    \"printer_structure\": \"corexy\",\n    \"printer_technology\": \"FFF\",\n    \"printer_variant\": \"0.4\",\n    \"printhost_authorization_type\": \"key\",\n    \"printhost_ssl_ignore_revoke\": \"0\",\n    \"printing_by_object_gcode\": \"\",\n    \"process_notes\": \"\",\n    \"raft_contact_distance\": \"0.1\",\n    \"raft_expansion\": \"1.5\",\n    \"raft_first_layer_density\": \"90%\",\n    \"raft_first_layer_expansion\": \"2\",\n    \"raft_layers\": \"0\",\n    \"reduce_crossing_wall\": \"0\",\n    \"reduce_fan_stop_start_freq\": [\n        \"1\",\n        \"1\",\n        \"1\",\n        \"1\"\n    ],\n    \"reduce_infill_retraction\": \"1\",\n    \"required_nozzle_HRC\": [\n        \"3\",\n        \"3\",\n        \"3\",\n        \"3\"\n    ],\n    \"resolution\": \"0.012\",\n    \"retract_before_wipe\": [\n        \"0%\"\n    ],\n    \"retract_length_toolchange\": [\n        \"2\"\n    ],\n    \"retract_lift_above\": [\n        \"0\"\n    ],\n    \"retract_lift_below\": [\n        \"249\"\n    ],\n    \"retract_restart_extra\": [\n        \"0\"\n    ],\n    \"retract_restart_extra_toolchange\": [\n        \"0\"\n    ],\n    \"retract_when_changing_layer\": [\n        \"1\"\n    ],\n    \"retraction_distances_when_cut\": [\n        \"18\"\n    ],\n    \"retraction_distances_when_ec\": [\n        \"0\",\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"retraction_length\": [\n        \"0.8\"\n    ],\n    \"retraction_minimum_travel\": [\n        \"1\"\n    ],\n    \"retraction_speed\": [\n        \"30\"\n    ],\n    \"role_base_wipe_speed\": \"1\",\n    \"scan_first_layer\": \"0\",\n    \"scarf_angle_threshold\": \"155\",\n    \"seam_gap\": \"15%\",\n    \"seam_position\": \"aligned\",\n    \"seam_slope_conditional\": \"1\",\n    \"seam_slope_entire_loop\": \"0\",\n    \"seam_slope_inner_walls\": \"1\",\n    \"seam_slope_steps\": \"10\",\n    \"silent_mode\": \"0\",\n    \"single_extruder_multi_material\": \"1\",\n    \"skeleton_infill_density\": \"15%\",\n    \"skeleton_infill_line_width\": \"0.45\",\n    \"skin_infill_density\": \"15%\",\n    \"skin_infill_depth\": \"2\",\n    \"skin_infill_line_width\": \"0.45\",\n    \"skirt_distance\": \"2\",\n    \"skirt_height\": \"1\",\n    \"skirt_loops\": \"0\",\n    \"slice_closing_radius\": \"0.049\",\n    \"slicing_mode\": \"regular\",\n    \"slow_down_for_layer_cooling\": [\n        \"1\",\n        \"1\",\n        \"1\",\n        \"1\"\n    ],\n    \"slow_down_layer_time\": [\n        \"4\",\n        \"4\",\n        \"4\",\n        \"8\"\n    ],\n    \"slow_down_min_speed\": [\n        \"20\",\n        \"20\",\n        \"20\",\n        \"20\"\n    ],\n    \"small_perimeter_speed\": [\n        \"50%\"\n    ],\n    \"small_perimeter_threshold\": [\n        \"0\"\n    ],\n    \"smooth_coefficient\": \"150\",\n    \"smooth_speed_discontinuity_area\": \"1\",\n    \"solid_infill_filament\": \"1\",\n    \"sparse_infill_acceleration\": [\n        \"100%\"\n    ],\n    \"sparse_infill_anchor\": \"400%\",\n    \"sparse_infill_anchor_max\": \"20\",\n    \"sparse_infill_density\": \"15%\",\n    \"sparse_infill_filament\": \"1\",\n    \"sparse_infill_line_width\": \"0.45\",\n    \"sparse_infill_pattern\": \"grid\",\n    \"sparse_infill_speed\": [\n        \"270\"\n    ],\n    \"spiral_mode\": \"0\",\n    \"spiral_mode_max_xy_smoothing\": \"200%\",\n    \"spiral_mode_smooth\": \"0\",\n    \"standby_temperature_delta\": \"-5\",\n    \"start_end_points\": [\n        \"30x-3\",\n        \"54x245\"\n    ],\n    \"supertack_plate_temp\": [\n        \"45\",\n        \"45\",\n        \"45\",\n        \"35\"\n    ],\n    \"supertack_plate_temp_initial_layer\": [\n        \"45\",\n        \"45\",\n        \"45\",\n        \"35\"\n    ],\n    \"support_air_filtration\": \"0\",\n    \"support_angle\": \"0\",\n    \"support_base_pattern\": \"default\",\n    \"support_base_pattern_spacing\": \"2.5\",\n    \"support_bottom_interface_spacing\": \"0.5\",\n    \"support_bottom_z_distance\": \"0.2\",\n    \"support_chamber_temp_control\": \"0\",\n    \"support_critical_regions_only\": \"0\",\n    \"support_expansion\": \"0\",\n    \"support_filament\": \"0\",\n    \"support_interface_bottom_layers\": \"2\",\n    \"support_interface_filament\": \"0\",\n    \"support_interface_loop_pattern\": \"0\",\n    \"support_interface_not_for_body\": \"1\",\n    \"support_interface_pattern\": \"auto\",\n    \"support_interface_spacing\": \"0.5\",\n    \"support_interface_speed\": [\n        \"80\"\n    ],\n    \"support_interface_top_layers\": \"2\",\n    \"support_line_width\": \"0.42\",\n    \"support_object_first_layer_gap\": \"0.2\",\n    \"support_object_xy_distance\": \"0.35\",\n    \"support_on_build_plate_only\": \"0\",\n    \"support_remove_small_overhang\": \"1\",\n    \"support_speed\": [\n        \"150\"\n    ],\n    \"support_style\": \"default\",\n    \"support_threshold_angle\": \"30\",\n    \"support_top_z_distance\": \"0.2\",\n    \"support_type\": \"tree(auto)\",\n    \"symmetric_infill_y_axis\": \"0\",\n    \"temperature_vitrification\": [\n        \"45\",\n        \"45\",\n        \"45\",\n        \"45\"\n    ],\n    \"template_custom_gcode\": \"\",\n    \"textured_plate_temp\": [\n        \"55\",\n        \"55\",\n        \"55\",\n        \"55\"\n    ],\n    \"textured_plate_temp_initial_layer\": [\n        \"55\",\n        \"55\",\n        \"55\",\n        \"55\"\n    ],\n    \"thick_bridges\": \"0\",\n    \"thumbnail_size\": [\n        \"50x50\"\n    ],\n    \"time_lapse_gcode\": \";========Date 20250206========\\n; SKIPPABLE_START\\n; SKIPTYPE: timelapse\\nM622.1 S1 ; for prev firware, default turned on\\nM1002 judge_flag timelapse_record_flag\\nM622 J1\\n{if timelapse_type == 0} ; timelapse without wipe tower\\nM971 S11 C10 O0\\nM1004 S5 P1  ; external shutter\\n{elsif timelapse_type == 1} ; timelapse with wipe tower\\nG92 E0\\nG1 X65 Y245 F20000 ; move to safe pos\\nG17\\nG2 Z{layer_z} I0.86 J0.86 P1 F20000\\nG1 Y265 F3000\\nM400\\nM1004 S5 P1  ; external shutter\\nM400 P300\\nM971 S11 C11 O0\\nG92 E0\\nG1 X100 F5000\\nG1 Y255 F20000\\n{endif}\\nM623\\n; SKIPPABLE_END\",\n    \"timelapse_type\": \"0\",\n    \"top_area_threshold\": \"200%\",\n    \"top_color_penetration_layers\": \"5\",\n    \"top_one_wall_type\": \"all top\",\n    \"top_shell_layers\": \"5\",\n    \"top_shell_thickness\": \"1\",\n    \"top_solid_infill_flow_ratio\": \"1\",\n    \"top_surface_acceleration\": [\n        \"2000\"\n    ],\n    \"top_surface_jerk\": \"9\",\n    \"top_surface_line_width\": \"0.42\",\n    \"top_surface_pattern\": \"monotonicline\",\n    \"top_surface_speed\": [\n        \"200\"\n    ],\n    \"travel_acceleration\": [\n        \"10000\"\n    ],\n    \"travel_jerk\": \"9\",\n    \"travel_speed\": [\n        \"500\"\n    ],\n    \"travel_speed_z\": [\n        \"0\"\n    ],\n    \"tree_support_branch_angle\": \"45\",\n    \"tree_support_branch_diameter\": \"2\",\n    \"tree_support_branch_diameter_angle\": \"5\",\n    \"tree_support_branch_distance\": \"5\",\n    \"tree_support_wall_count\": \"0\",\n    \"upward_compatible_machine\": [\n        \"Bambu Lab P1P 0.4 nozzle\",\n        \"Bambu Lab X1 0.4 nozzle\",\n        \"Bambu Lab X1 Carbon 0.4 nozzle\",\n        \"Bambu Lab X1E 0.4 nozzle\",\n        \"Bambu Lab A1 0.4 nozzle\",\n        \"Bambu Lab H2D 0.4 nozzle\"\n    ],\n    \"use_firmware_retraction\": \"0\",\n    \"use_relative_e_distances\": \"1\",\n    \"version\": \"02.01.01.52\",\n    \"vertical_shell_speed\": [\n        \"80%\"\n    ],\n    \"wall_distribution_count\": \"1\",\n    \"wall_filament\": \"1\",\n    \"wall_generator\": \"classic\",\n    \"wall_loops\": \"2\",\n    \"wall_sequence\": \"inner wall/outer wall\",\n    \"wall_transition_angle\": \"10\",\n    \"wall_transition_filter_deviation\": \"25%\",\n    \"wall_transition_length\": \"100%\",\n    \"wipe\": [\n        \"1\"\n    ],\n    \"wipe_distance\": [\n        \"2\"\n    ],\n    \"wipe_speed\": \"80%\",\n    \"wipe_tower_no_sparse_layers\": \"0\",\n    \"wipe_tower_rotation_angle\": \"0\",\n    \"wipe_tower_x\": [\n        \"165\"\n    ],\n    \"wipe_tower_y\": [\n        \"216.972\"\n    ],\n    \"xy_contour_compensation\": \"0\",\n    \"xy_hole_compensation\": \"0\",\n    \"z_direction_outwall_speed_continuous\": \"0\",\n    \"z_hop\": [\n        \"0.4\"\n    ],\n    \"z_hop_types\": [\n        \"Auto Lift\"\n    ]\n}\n",
+  a1: "{\n    \"accel_to_decel_enable\": \"0\",\n    \"accel_to_decel_factor\": \"50%\",\n    \"activate_air_filtration\": [\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"additional_cooling_fan_speed\": [\n        \"70\",\n        \"70\",\n        \"0\"\n    ],\n    \"apply_scarf_seam_on_circles\": \"1\",\n    \"auxiliary_fan\": \"0\",\n    \"bed_custom_model\": \"\",\n    \"bed_custom_texture\": \"\",\n    \"bed_exclude_area\": [],\n    \"bed_temperature_formula\": \"by_first_filament\",\n    \"before_layer_change_gcode\": \"\",\n    \"best_object_pos\": \"0.5,0.5\",\n    \"bottom_color_penetration_layers\": \"4\",\n    \"bottom_shell_layers\": \"4\",\n    \"bottom_shell_thickness\": \"0\",\n    \"bottom_surface_pattern\": \"monotonic\",\n    \"bridge_angle\": \"0\",\n    \"bridge_flow\": \"1\",\n    \"bridge_no_support\": \"0\",\n    \"bridge_speed\": [\n        \"50\"\n    ],\n    \"brim_object_gap\": \"0.1\",\n    \"brim_type\": \"outer_only\",\n    \"brim_width\": \"5\",\n    \"chamber_temperatures\": [\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"change_filament_gcode\": \";===== A1 20250206 =======================\\nM1007 S0 ; turn off mass estimation\\nG392 S0\\nM620 S[next_extruder]A\\nM204 S9000\\nG1 Z{max_layer_z + 3.0} F1200\\n\\nM400\\nM106 P1 S0\\nM106 P2 S0\\n{if old_filament_temp > 142 && next_extruder < 255}\\nM104 S[old_filament_temp]\\n{endif}\\n\\nG1 X267 F18000\\n\\n{if long_retractions_when_cut[previous_extruder]}\\nM620.11 S1 I[previous_extruder] E-{retraction_distances_when_cut[previous_extruder]} F1200\\n{else}\\nM620.11 S0\\n{endif}\\nM400\\n\\nM620.1 E F[old_filament_e_feedrate] T{nozzle_temperature_range_high[previous_extruder]}\\nM620.10 A0 F[old_filament_e_feedrate]\\nT[next_extruder]\\nM620.1 E F[new_filament_e_feedrate] T{nozzle_temperature_range_high[next_extruder]}\\nM620.10 A1 F[new_filament_e_feedrate] L[flush_length] H[nozzle_diameter] T[nozzle_temperature_range_high]\\n\\nG1 Y128 F9000\\n\\n{if next_extruder < 255}\\n\\n{if long_retractions_when_cut[previous_extruder]}\\nM620.11 S1 I[previous_extruder] E{retraction_distances_when_cut[previous_extruder]} F{old_filament_e_feedrate}\\nM628 S1\\nG92 E0\\nG1 E{retraction_distances_when_cut[previous_extruder]} F[old_filament_e_feedrate]\\nM400\\nM629 S1\\n{else}\\nM620.11 S0\\n{endif}\\n\\nM400\\nG92 E0\\nM628 S0\\n\\n{if flush_length_1 > 1}\\n; FLUSH_START\\n; always use highest temperature to flush\\nM400\\nM1002 set_filament_type:UNKNOWN\\nM109 S[nozzle_temperature_range_high]\\nM106 P1 S60\\n{if flush_length_1 > 23.7}\\nG1 E23.7 F{old_filament_e_feedrate} ; do not need pulsatile flushing for start part\\nG1 E{(flush_length_1 - 23.7) * 0.02} F50\\nG1 E{(flush_length_1 - 23.7) * 0.23} F{old_filament_e_feedrate}\\nG1 E{(flush_length_1 - 23.7) * 0.02} F50\\nG1 E{(flush_length_1 - 23.7) * 0.23} F{new_filament_e_feedrate}\\nG1 E{(flush_length_1 - 23.7) * 0.02} F50\\nG1 E{(flush_length_1 - 23.7) * 0.23} F{new_filament_e_feedrate}\\nG1 E{(flush_length_1 - 23.7) * 0.02} F50\\nG1 E{(flush_length_1 - 23.7) * 0.23} F{new_filament_e_feedrate}\\n{else}\\nG1 E{flush_length_1} F{old_filament_e_feedrate}\\n{endif}\\n; FLUSH_END\\nG1 E-[old_retract_length_toolchange] F1800\\nG1 E[old_retract_length_toolchange] F300\\nM400\\nM1002 set_filament_type:{filament_type[next_extruder]}\\n{endif}\\n\\n{if flush_length_1 > 45 && flush_length_2 > 1}\\n; WIPE\\nM400\\nM106 P1 S178\\nM400 S3\\nG1 X-38.2 F18000\\nG1 X-48.2 F3000\\nG1 X-38.2 F18000\\nG1 X-48.2 F3000\\nG1 X-38.2 F18000\\nG1 X-48.2 F3000\\nM400\\nM106 P1 S0\\n{endif}\\n\\n{if flush_length_2 > 1}\\nM106 P1 S60\\n; FLUSH_START\\nG1 E{flush_length_2 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_2 * 0.02} F50\\nG1 E{flush_length_2 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_2 * 0.02} F50\\nG1 E{flush_length_2 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_2 * 0.02} F50\\nG1 E{flush_length_2 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_2 * 0.02} F50\\nG1 E{flush_length_2 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_2 * 0.02} F50\\n; FLUSH_END\\nG1 E-[new_retract_length_toolchange] F1800\\nG1 E[new_retract_length_toolchange] F300\\n{endif}\\n\\n{if flush_length_2 > 45 && flush_length_3 > 1}\\n; WIPE\\nM400\\nM106 P1 S178\\nM400 S3\\nG1 X-38.2 F18000\\nG1 X-48.2 F3000\\nG1 X-38.2 F18000\\nG1 X-48.2 F3000\\nG1 X-38.2 F18000\\nG1 X-48.2 F3000\\nM400\\nM106 P1 S0\\n{endif}\\n\\n{if flush_length_3 > 1}\\nM106 P1 S60\\n; FLUSH_START\\nG1 E{flush_length_3 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_3 * 0.02} F50\\nG1 E{flush_length_3 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_3 * 0.02} F50\\nG1 E{flush_length_3 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_3 * 0.02} F50\\nG1 E{flush_length_3 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_3 * 0.02} F50\\nG1 E{flush_length_3 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_3 * 0.02} F50\\n; FLUSH_END\\nG1 E-[new_retract_length_toolchange] F1800\\nG1 E[new_retract_length_toolchange] F300\\n{endif}\\n\\n{if flush_length_3 > 45 && flush_length_4 > 1}\\n; WIPE\\nM400\\nM106 P1 S178\\nM400 S3\\nG1 X-38.2 F18000\\nG1 X-48.2 F3000\\nG1 X-38.2 F18000\\nG1 X-48.2 F3000\\nG1 X-38.2 F18000\\nG1 X-48.2 F3000\\nM400\\nM106 P1 S0\\n{endif}\\n\\n{if flush_length_4 > 1}\\nM106 P1 S60\\n; FLUSH_START\\nG1 E{flush_length_4 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_4 * 0.02} F50\\nG1 E{flush_length_4 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_4 * 0.02} F50\\nG1 E{flush_length_4 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_4 * 0.02} F50\\nG1 E{flush_length_4 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_4 * 0.02} F50\\nG1 E{flush_length_4 * 0.18} F{new_filament_e_feedrate}\\nG1 E{flush_length_4 * 0.02} F50\\n; FLUSH_END\\n{endif}\\n\\nM629\\n\\nM400\\nM106 P1 S60\\nM109 S[new_filament_temp]\\nG1 E6 F{new_filament_e_feedrate} ;Compensate for filament spillage during waiting temperature\\nM400\\nG92 E0\\nG1 E-[new_retract_length_toolchange] F1800\\nM400\\nM106 P1 S178\\nM400 S3\\nG1 X-38.2 F18000\\nG1 X-48.2 F3000\\nG1 X-38.2 F18000\\nG1 X-48.2 F3000\\nG1 X-38.2 F18000\\nG1 X-48.2 F3000\\nG1 X-38.2 F18000\\nG1 X-48.2 F3000\\nM400\\nG1 Z{max_layer_z + 3.0} F3000\\nM106 P1 S0\\n{if layer_z <= (initial_layer_print_height + 0.001)}\\nM204 S[initial_layer_acceleration]\\n{else}\\nM204 S[default_acceleration]\\n{endif}\\n{else}\\nG1 X[x_after_toolchange] Y[y_after_toolchange] Z[z_after_toolchange] F12000\\n{endif}\\n\\nM622.1 S0\\nM9833 F{outer_wall_volumetric_speed/2.4} A0.3 ; cali dynamic extrusion compensation\\nM1002 judge_flag filament_need_cali_flag\\nM622 J1\\n  G92 E0\\n  G1 E-[new_retract_length_toolchange] F1800\\n  M400\\n  \\n  M106 P1 S178\\n  M400 S4\\n  G1 X-38.2 F18000\\n  G1 X-48.2 F3000\\n  G1 X-38.2 F18000 ;wipe and shake\\n  G1 X-48.2 F3000\\n  G1 X-38.2 F12000 ;wipe and shake\\n  G1 X-48.2 F3000\\n  M400\\n  M106 P1 S0 \\nM623\\n\\nM621 S[next_extruder]A\\nG392 S0\\n\\nM1007 S1\\n\",\n    \"circle_compensation_manual_offset\": \"0\",\n    \"circle_compensation_speed\": [\n        \"200\",\n        \"200\",\n        \"200\"\n    ],\n    \"close_fan_the_first_x_layers\": [\n        \"1\",\n        \"1\",\n        \"3\"\n    ],\n    \"complete_print_exhaust_fan_speed\": [\n        \"70\",\n        \"70\",\n        \"70\"\n    ],\n    \"cool_plate_temp\": [\n        \"35\",\n        \"35\",\n        \"0\"\n    ],\n    \"cool_plate_temp_initial_layer\": [\n        \"35\",\n        \"35\",\n        \"0\"\n    ],\n    \"counter_coef_1\": [\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"counter_coef_2\": [\n        \"0.008\",\n        \"0.008\",\n        \"0.008\"\n    ],\n    \"counter_coef_3\": [\n        \"-0.041\",\n        \"-0.041\",\n        \"-0.041\"\n    ],\n    \"counter_limit_max\": [\n        \"0.033\",\n        \"0.033\",\n        \"0.033\"\n    ],\n    \"counter_limit_min\": [\n        \"-0.035\",\n        \"-0.035\",\n        \"-0.035\"\n    ],\n    \"curr_bed_type\": \"High Temp Plate\",\n    \"default_acceleration\": [\n        \"6000\"\n    ],\n    \"default_filament_colour\": [\n        \"\",\n        \"\",\n        \"\"\n    ],\n    \"default_filament_profile\": [\n        \"Bambu PLA Basic @BBL A1\"\n    ],\n    \"default_jerk\": \"0\",\n    \"default_nozzle_volume_type\": [\n        \"Standard\"\n    ],\n    \"default_print_profile\": \"0.20mm Standard @BBL A1\",\n    \"deretraction_speed\": [\n        \"30\"\n    ],\n    \"detect_floating_vertical_shell\": \"1\",\n    \"detect_narrow_internal_solid_infill\": \"1\",\n    \"detect_overhang_wall\": \"1\",\n    \"detect_thin_wall\": \"0\",\n    \"diameter_limit\": [\n        \"50\",\n        \"50\",\n        \"50\"\n    ],\n    \"different_settings_to_system\": [\n        \"brim_type;enable_support;support_critical_regions_only;support_on_build_plate_only\",\n        \"\",\n        \"\",\n        \"\",\n        \"\"\n    ],\n    \"draft_shield\": \"disabled\",\n    \"during_print_exhaust_fan_speed\": [\n        \"70\",\n        \"70\",\n        \"70\"\n    ],\n    \"elefant_foot_compensation\": \"0.075\",\n    \"enable_arc_fitting\": \"1\",\n    \"enable_circle_compensation\": \"0\",\n    \"enable_long_retraction_when_cut\": \"2\",\n    \"enable_overhang_bridge_fan\": [\n        \"1\",\n        \"1\",\n        \"1\"\n    ],\n    \"enable_overhang_speed\": [\n        \"1\"\n    ],\n    \"enable_pre_heating\": \"0\",\n    \"enable_pressure_advance\": [\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"enable_prime_tower\": \"1\",\n    \"enable_support\": \"1\",\n    \"enforce_support_layers\": \"0\",\n    \"eng_plate_temp\": [\n        \"0\",\n        \"0\",\n        \"70\"\n    ],\n    \"eng_plate_temp_initial_layer\": [\n        \"0\",\n        \"0\",\n        \"70\"\n    ],\n    \"ensure_vertical_shell_thickness\": \"enabled\",\n    \"exclude_object\": \"1\",\n    \"extruder_ams_count\": [\n        \"1#0|4#0\",\n        \"1#0|4#0\"\n    ],\n    \"extruder_clearance_dist_to_rod\": \"56.5\",\n    \"extruder_clearance_height_to_lid\": \"256\",\n    \"extruder_clearance_height_to_rod\": \"25\",\n    \"extruder_clearance_max_radius\": \"73\",\n    \"extruder_colour\": [\n        \"#018001\"\n    ],\n    \"extruder_offset\": [\n        \"0x0\"\n    ],\n    \"extruder_printable_area\": [],\n    \"extruder_printable_height\": [],\n    \"extruder_type\": [\n        \"Direct Drive\"\n    ],\n    \"extruder_variant_list\": [\n        \"Direct Drive Standard\"\n    ],\n    \"fan_cooling_layer_time\": [\n        \"80\",\n        \"80\",\n        \"30\"\n    ],\n    \"fan_max_speed\": [\n        \"80\",\n        \"80\",\n        \"90\"\n    ],\n    \"fan_min_speed\": [\n        \"60\",\n        \"60\",\n        \"40\"\n    ],\n    \"filament_adhesiveness_category\": [\n        \"100\",\n        \"100\",\n        \"300\"\n    ],\n    \"filament_change_length\": [\n        \"5\",\n        \"10\",\n        \"10\"\n    ],\n    \"filament_colour\": [\n        \"#000000\",\n        \"#5B6579\",\n        \"#000000\"\n    ],\n    \"filament_cost\": [\n        \"24.99\",\n        \"20\",\n        \"30\"\n    ],\n    \"filament_density\": [\n        \"1.26\",\n        \"1.24\",\n        \"1.27\"\n    ],\n    \"filament_deretraction_speed\": [\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_diameter\": [\n        \"1.75\",\n        \"1.75\",\n        \"1.75\"\n    ],\n    \"filament_end_gcode\": [\n        \"; filament end gcode \\n\\n\",\n        \"; filament end gcode \\n\\n\",\n        \"; filament end gcode \\n\\n\"\n    ],\n    \"filament_extruder_variant\": [\n        \"Direct Drive Standard\",\n        \"Direct Drive Standard\",\n        \"Direct Drive Standard\"\n    ],\n    \"filament_flow_ratio\": [\n        \"0.98\",\n        \"0.98\",\n        \"0.95\"\n    ],\n    \"filament_ids\": [\n        \"GFA00\",\n        \"GFL96\",\n        \"GFG99\"\n    ],\n    \"filament_is_support\": [\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"filament_long_retractions_when_cut\": [\n        \"1\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_map\": [\n        \"1\",\n        \"1\",\n        \"1\"\n    ],\n    \"filament_map_mode\": \"Auto For Flush\",\n    \"filament_max_volumetric_speed\": [\n        \"21\",\n        \"7.5\",\n        \"8\"\n    ],\n    \"filament_minimal_purge_on_wipe_tower\": [\n        \"15\",\n        \"15\",\n        \"15\"\n    ],\n    \"filament_notes\": \"\",\n    \"filament_pre_cooling_temperature\": [\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"filament_prime_volume\": [\n        \"30\",\n        \"45\",\n        \"45\"\n    ],\n    \"filament_ramming_travel_time\": [\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"filament_ramming_volumetric_speed\": [\n        \"-1\",\n        \"-1\",\n        \"-1\"\n    ],\n    \"filament_retract_before_wipe\": [\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_retract_restart_extra\": [\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_retract_when_changing_layer\": [\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_retraction_distances_when_cut\": [\n        \"18\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_retraction_length\": [\n        \"nil\",\n        \"0.5\",\n        \"nil\"\n    ],\n    \"filament_retraction_minimum_travel\": [\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_retraction_speed\": [\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_scarf_gap\": [\n        \"0%\",\n        \"15%\",\n        \"0%\"\n    ],\n    \"filament_scarf_height\": [\n        \"10%\",\n        \"10%\",\n        \"10%\"\n    ],\n    \"filament_scarf_length\": [\n        \"10\",\n        \"10\",\n        \"10\"\n    ],\n    \"filament_scarf_seam_type\": [\n        \"none\",\n        \"none\",\n        \"none\"\n    ],\n    \"filament_self_index\": [\n        \"1\",\n        \"2\",\n        \"3\"\n    ],\n    \"filament_settings_id\": [\n        \"Bambu PLA Basic @BBL A1\",\n        \"Generic PLA Silk @BBL A1\",\n        \"Generic PETG @BBL A1\"\n    ],\n    \"filament_shrink\": [\n        \"100%\",\n        \"100%\",\n        \"100%\"\n    ],\n    \"filament_soluble\": [\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"filament_start_gcode\": [\n        \"; filament start gcode\\n{if  (bed_temperature[current_extruder] >55)||(bed_temperature_initial_layer[current_extruder] >55)}M106 P3 S200\\n{elsif(bed_temperature[current_extruder] >50)||(bed_temperature_initial_layer[current_extruder] >50)}M106 P3 S150\\n{elsif(bed_temperature[current_extruder] >45)||(bed_temperature_initial_layer[current_extruder] >45)}M106 P3 S50\\n{endif}\\n\\n{if activate_air_filtration[current_extruder] && support_air_filtration}\\nM106 P3 S{during_print_exhaust_fan_speed_num[current_extruder]} \\n{endif}\",\n        \"; filament start gcode\\n{if  (bed_temperature[current_extruder] >45)||(bed_temperature_initial_layer[current_extruder] >45)}M106 P3 S255\\n{elsif(bed_temperature[current_extruder] >35)||(bed_temperature_initial_layer[current_extruder] >35)}M106 P3 S180\\n{endif};Prevent PLA from jamming\\n\\n{if activate_air_filtration[current_extruder] && support_air_filtration}\\nM106 P3 S{during_print_exhaust_fan_speed_num[current_extruder]} \\n{endif}\",\n        \"; filament start gcode\\n{if (bed_temperature[current_extruder] >80)||(bed_temperature_initial_layer[current_extruder] >80)}M106 P3 S255\\n{elsif (bed_temperature[current_extruder] >60)||(bed_temperature_initial_layer[current_extruder] >60)}M106 P3 S180\\n{endif}\\n\\n{if activate_air_filtration[current_extruder] && support_air_filtration}\\nM106 P3 S{during_print_exhaust_fan_speed_num[current_extruder]} \\n{endif}\"\n    ],\n    \"filament_type\": [\n        \"PLA\",\n        \"PLA\",\n        \"PETG\"\n    ],\n    \"filament_vendor\": [\n        \"Bambu Lab\",\n        \"Generic\",\n        \"Generic\"\n    ],\n    \"filament_wipe\": [\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_wipe_distance\": [\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_z_hop\": [\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filament_z_hop_types\": [\n        \"nil\",\n        \"nil\",\n        \"nil\"\n    ],\n    \"filename_format\": \"{input_filename_base}_{filament_type[0]}_{print_time}.gcode\",\n    \"filter_out_gap_fill\": \"0\",\n    \"first_layer_print_sequence\": [\n        \"0\"\n    ],\n    \"flush_into_infill\": \"0\",\n    \"flush_into_objects\": \"0\",\n    \"flush_into_support\": \"1\",\n    \"flush_multiplier\": [\n        \"1.1\"\n    ],\n    \"flush_volumes_matrix\": [\n        \"0\",\n        \"353\",\n        \"108\",\n        \"152\",\n        \"0\",\n        \"152\",\n        \"152\",\n        \"397\",\n        \"0\"\n    ],\n    \"flush_volumes_vector\": [\n        \"140\",\n        \"140\",\n        \"140\",\n        \"140\",\n        \"140\",\n        \"140\"\n    ],\n    \"from\": \"project\",\n    \"full_fan_speed_layer\": [\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"fuzzy_skin\": \"none\",\n    \"fuzzy_skin_point_distance\": \"0.8\",\n    \"fuzzy_skin_thickness\": \"0.3\",\n    \"gap_infill_speed\": [\n        \"300\"\n    ],\n    \"gcode_add_line_number\": \"0\",\n    \"gcode_flavor\": \"marlin\",\n    \"grab_length\": [\n        \"17.4\"\n    ],\n    \"has_scarf_joint_seam\": \"0\",\n    \"head_wrap_detect_zone\": [\n        \"226x224\",\n        \"256x224\",\n        \"256x256\",\n        \"226x256\"\n    ],\n    \"hole_coef_1\": [\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"hole_coef_2\": [\n        \"-0.008\",\n        \"-0.008\",\n        \"-0.008\"\n    ],\n    \"hole_coef_3\": [\n        \"0.23415\",\n        \"0.23415\",\n        \"0.23415\"\n    ],\n    \"hole_limit_max\": [\n        \"0.22\",\n        \"0.22\",\n        \"0.22\"\n    ],\n    \"hole_limit_min\": [\n        \"0.088\",\n        \"0.088\",\n        \"0.088\"\n    ],\n    \"host_type\": \"octoprint\",\n    \"hot_plate_temp\": [\n        \"65\",\n        \"55\",\n        \"80\"\n    ],\n    \"hot_plate_temp_initial_layer\": [\n        \"65\",\n        \"55\",\n        \"80\"\n    ],\n    \"hotend_cooling_rate\": [\n        \"2\"\n    ],\n    \"hotend_heating_rate\": [\n        \"2\"\n    ],\n    \"impact_strength_z\": [\n        \"13.8\",\n        \"10\",\n        \"10\"\n    ],\n    \"independent_support_layer_height\": \"1\",\n    \"infill_combination\": \"0\",\n    \"infill_direction\": \"45\",\n    \"infill_jerk\": \"9\",\n    \"infill_rotate_step\": \"0\",\n    \"infill_shift_step\": \"0.4\",\n    \"infill_wall_overlap\": \"15%\",\n    \"initial_layer_acceleration\": [\n        \"500\"\n    ],\n    \"initial_layer_flow_ratio\": \"1\",\n    \"initial_layer_infill_speed\": [\n        \"105\"\n    ],\n    \"initial_layer_jerk\": \"9\",\n    \"initial_layer_line_width\": \"0.5\",\n    \"initial_layer_print_height\": \"0.2\",\n    \"initial_layer_speed\": [\n        \"50\"\n    ],\n    \"initial_layer_travel_acceleration\": [\n        \"6000\"\n    ],\n    \"inner_wall_acceleration\": [\n        \"0\"\n    ],\n    \"inner_wall_jerk\": \"9\",\n    \"inner_wall_line_width\": \"0.45\",\n    \"inner_wall_speed\": [\n        \"300\"\n    ],\n    \"interface_shells\": \"0\",\n    \"interlocking_beam\": \"0\",\n    \"interlocking_beam_layer_count\": \"2\",\n    \"interlocking_beam_width\": \"0.8\",\n    \"interlocking_boundary_avoidance\": \"2\",\n    \"interlocking_depth\": \"2\",\n    \"interlocking_orientation\": \"22.5\",\n    \"internal_bridge_support_thickness\": \"0.8\",\n    \"internal_solid_infill_line_width\": \"0.42\",\n    \"internal_solid_infill_pattern\": \"zig-zag\",\n    \"internal_solid_infill_speed\": [\n        \"300\"\n    ],\n    \"ironing_direction\": \"45\",\n    \"ironing_flow\": \"10%\",\n    \"ironing_inset\": \"0.21\",\n    \"ironing_pattern\": \"zig-zag\",\n    \"ironing_spacing\": \"0.15\",\n    \"ironing_speed\": \"30\",\n    \"ironing_type\": \"no ironing\",\n    \"is_infill_first\": \"0\",\n    \"layer_change_gcode\": \"; layer num/total_layer_count: {layer_num+1}/[total_layer_count]\\n; update layer progress\\nM73 L{layer_num+1}\\nM991 S0 P{layer_num} ;notify layer change\",\n    \"layer_height\": \"0.16\",\n    \"line_width\": \"0.42\",\n    \"long_retractions_when_cut\": [\n        \"0\"\n    ],\n    \"machine_end_gcode\": \";===== date: 20231229 =====================\\nG392 S0 ;turn off nozzle clog detect\\n\\nM400 ; wait for buffer to clear\\nG92 E0 ; zero the extruder\\nG1 E-0.8 F1800 ; retract\\nG1 Z{max_layer_z + 0.5} F900 ; lower z a little\\nG1 X0 Y{first_layer_center_no_wipe_tower[1]} F18000 ; move to safe pos\\nG1 X-13.0 F3000 ; move to safe pos\\n{if !spiral_mode && print_sequence != \\\"by object\\\"}\\nM1002 judge_flag timelapse_record_flag\\nM622 J1\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM400 P100\\nM971 S11 C11 O0\\nM991 S0 P-1 ;end timelapse at safe pos\\nM623\\n{endif}\\n\\nM140 S0 ; turn off bed\\nM106 S0 ; turn off fan\\nM106 P2 S0 ; turn off remote part cooling fan\\nM106 P3 S0 ; turn off chamber cooling fan\\n\\n;G1 X27 F15000 ; wipe\\n\\n; pull back filament to AMS\\nM620 S255\\nG1 X267 F15000\\nT255\\nG1 X-28.5 F18000\\nG1 X-48.2 F3000\\nG1 X-28.5 F18000\\nG1 X-48.2 F3000\\nM621 S255\\n\\nM104 S0 ; turn off hotend\\n\\nM400 ; wait all motion done\\nM17 S\\nM17 Z0.4 ; lower z motor current to reduce impact if there is something in the bottom\\n{if (max_layer_z + 100.0) < 256}\\n    G1 Z{max_layer_z + 100.0} F600\\n    G1 Z{max_layer_z +98.0}\\n{else}\\n    G1 Z256 F600\\n    G1 Z256\\n{endif}\\nM400 P100\\nM17 R ; restore z current\\n\\nG90\\nG1 X-48 Y180 F3600\\n\\nM220 S100  ; Reset feedrate magnitude\\nM201.2 K1.0 ; Reset acc magnitude\\nM73.2   R1.0 ;Reset left time magnitude\\nM1002 set_gcode_claim_speed_level : 0\\n\\n;=====printer finish  sound=========\\nM17\\nM400 S1\\nM1006 S1\\nM1006 A0 B20 L100 C37 D20 M40 E42 F20 N60\\nM1006 A0 B10 L100 C44 D10 M60 E44 F10 N60\\nM1006 A0 B10 L100 C46 D10 M80 E46 F10 N80\\nM1006 A44 B20 L100 C39 D20 M60 E48 F20 N60\\nM1006 A0 B10 L100 C44 D10 M60 E44 F10 N60\\nM1006 A0 B10 L100 C0 D10 M60 E0 F10 N60\\nM1006 A0 B10 L100 C39 D10 M60 E39 F10 N60\\nM1006 A0 B10 L100 C0 D10 M60 E0 F10 N60\\nM1006 A0 B10 L100 C44 D10 M60 E44 F10 N60\\nM1006 A0 B10 L100 C0 D10 M60 E0 F10 N60\\nM1006 A0 B10 L100 C39 D10 M60 E39 F10 N60\\nM1006 A0 B10 L100 C0 D10 M60 E0 F10 N60\\nM1006 A0 B10 L100 C48 D10 M60 E44 F10 N80\\nM1006 A0 B10 L100 C0 D10 M60 E0 F10  N80\\nM1006 A44 B20 L100 C49 D20 M80 E41 F20 N80\\nM1006 A0 B20 L100 C0 D20 M60 E0 F20 N80\\nM1006 A0 B20 L100 C37 D20 M30 E37 F20 N60\\nM1006 W\\n;=====printer finish  sound=========\\n\\n;M17 X0.8 Y0.8 Z0.5 ; lower motor current to 45% power\\nM400\\nM18 X Y Z\\n\\n\",\n    \"machine_load_filament_time\": \"25\",\n    \"machine_max_acceleration_e\": [\n        \"5000\",\n        \"5000\"\n    ],\n    \"machine_max_acceleration_extruding\": [\n        \"12000\",\n        \"12000\"\n    ],\n    \"machine_max_acceleration_retracting\": [\n        \"5000\",\n        \"5000\"\n    ],\n    \"machine_max_acceleration_travel\": [\n        \"9000\",\n        \"9000\"\n    ],\n    \"machine_max_acceleration_x\": [\n        \"12000\",\n        \"12000\"\n    ],\n    \"machine_max_acceleration_y\": [\n        \"12000\",\n        \"12000\"\n    ],\n    \"machine_max_acceleration_z\": [\n        \"1500\",\n        \"1500\"\n    ],\n    \"machine_max_jerk_e\": [\n        \"3\",\n        \"3\"\n    ],\n    \"machine_max_jerk_x\": [\n        \"9\",\n        \"9\"\n    ],\n    \"machine_max_jerk_y\": [\n        \"9\",\n        \"9\"\n    ],\n    \"machine_max_jerk_z\": [\n        \"3\",\n        \"3\"\n    ],\n    \"machine_max_speed_e\": [\n        \"30\",\n        \"30\"\n    ],\n    \"machine_max_speed_x\": [\n        \"500\",\n        \"200\"\n    ],\n    \"machine_max_speed_y\": [\n        \"500\",\n        \"200\"\n    ],\n    \"machine_max_speed_z\": [\n        \"30\",\n        \"30\"\n    ],\n    \"machine_min_extruding_rate\": [\n        \"0\",\n        \"0\"\n    ],\n    \"machine_min_travel_rate\": [\n        \"0\",\n        \"0\"\n    ],\n    \"machine_pause_gcode\": \"M400 U1\",\n    \"machine_start_gcode\": \";===== machine: A1 =========================\\n;===== date: 20240620 =====================\\nG392 S0\\nM9833.2\\n;M400\\n;M73 P1.717\\n\\n;===== start to heat heatbead&hotend==========\\nM1002 gcode_claim_action : 2\\nM1002 set_filament_type:{filament_type[initial_no_support_extruder]}\\nM104 S140\\nM140 S[bed_temperature_initial_layer_single]\\n\\n;=====start printer sound ===================\\nM17\\nM400 S1\\nM1006 S1\\nM1006 A0 B10 L100 C37 D10 M60 E37 F10 N60\\nM1006 A0 B10 L100 C41 D10 M60 E41 F10 N60\\nM1006 A0 B10 L100 C44 D10 M60 E44 F10 N60\\nM1006 A0 B10 L100 C0 D10 M60 E0 F10 N60\\nM1006 A43 B10 L100 C46 D10 M70 E39 F10 N80\\nM1006 A0 B10 L100 C0 D10 M60 E0 F10 N80\\nM1006 A0 B10 L100 C43 D10 M60 E39 F10 N80\\nM1006 A0 B10 L100 C0 D10 M60 E0 F10 N80\\nM1006 A0 B10 L100 C41 D10 M80 E41 F10 N80\\nM1006 A0 B10 L100 C44 D10 M80 E44 F10 N80\\nM1006 A0 B10 L100 C49 D10 M80 E49 F10 N80\\nM1006 A0 B10 L100 C0 D10 M80 E0 F10 N80\\nM1006 A44 B10 L100 C48 D10 M60 E39 F10 N80\\nM1006 A0 B10 L100 C0 D10 M60 E0 F10 N80\\nM1006 A0 B10 L100 C44 D10 M80 E39 F10 N80\\nM1006 A0 B10 L100 C0 D10 M60 E0 F10 N80\\nM1006 A43 B10 L100 C46 D10 M60 E39 F10 N80\\nM1006 W\\nM18 \\n;=====start printer sound ===================\\n\\n;=====avoid end stop =================\\nG91\\nG380 S2 Z40 F1200\\nG380 S3 Z-15 F1200\\nG90\\n\\n;===== reset machine status =================\\n;M290 X39 Y39 Z8\\nM204 S6000\\n\\nM630 S0 P0\\nG91\\nM17 Z0.3 ; lower the z-motor current\\n\\nG90\\nM17 X0.65 Y1.2 Z0.6 ; reset motor current to default\\nM960 S5 P1 ; turn on logo lamp\\nG90\\nM220 S100 ;Reset Feedrate\\nM221 S100 ;Reset Flowrate\\nM73.2   R1.0 ;Reset left time magnitude\\n;M211 X0 Y0 Z0 ; turn off soft endstop to prevent protential logic problem\\n\\n;====== cog noise reduction=================\\nM982.2 S1 ; turn on cog noise reduction\\n\\nM1002 gcode_claim_action : 13\\n\\nG28 X\\nG91\\nG1 Z5 F1200\\nG90\\nG0 X128 F30000\\nG0 Y254 F3000\\nG91\\nG1 Z-5 F1200\\n\\nM109 S25 H140\\n\\nM17 E0.3\\nM83\\nG1 E10 F1200\\nG1 E-0.5 F30\\nM17 D\\n\\nG28 Z P0 T140; home z with low precision,permit 300deg temperature\\nM104 S{nozzle_temperature_initial_layer[initial_extruder]}\\n\\nM1002 judge_flag build_plate_detect_flag\\nM622 S1\\n  G39.4\\n  G90\\n  G1 Z5 F1200\\nM623\\n\\n;M400\\n;M73 P1.717\\n\\n;===== prepare print temperature and material ==========\\nM1002 gcode_claim_action : 24\\n\\nM400\\n;G392 S1\\nM211 X0 Y0 Z0 ;turn off soft endstop\\nM975 S1 ; turn on\\n\\nG90\\nG1 X-28.5 F30000\\nG1 X-48.2 F3000\\n\\nM620 M ;enable remap\\nM620 S[initial_no_support_extruder]A   ; switch material if AMS exist\\n    M1002 gcode_claim_action : 4\\n    M400\\n    M1002 set_filament_type:UNKNOWN\\n    M109 S[nozzle_temperature_initial_layer]\\n    M104 S250\\n    M400\\n    T[initial_no_support_extruder]\\n    G1 X-48.2 F3000\\n    M400\\n\\n    M620.1 E F{filament_max_volumetric_speed[initial_no_support_extruder]/2.4053*60} T{nozzle_temperature_range_high[initial_no_support_extruder]}\\n    M109 S250 ;set nozzle to common flush temp\\n    M106 P1 S0\\n    G92 E0\\n    G1 E50 F200\\n    M400\\n    M1002 set_filament_type:{filament_type[initial_no_support_extruder]}\\nM621 S[initial_no_support_extruder]A\\n\\nM109 S{nozzle_temperature_range_high[initial_no_support_extruder]} H300\\nG92 E0\\nG1 E50 F200 ; lower extrusion speed to avoid clog\\nM400\\nM106 P1 S178\\nG92 E0\\nG1 E5 F200\\nM104 S{nozzle_temperature_initial_layer[initial_no_support_extruder]}\\nG92 E0\\nG1 E-0.5 F300\\n\\nG1 X-28.5 F30000\\nG1 X-48.2 F3000\\nG1 X-28.5 F30000 ;wipe and shake\\nG1 X-48.2 F3000\\nG1 X-28.5 F30000 ;wipe and shake\\nG1 X-48.2 F3000\\n\\n;G392 S0\\n\\nM400\\nM106 P1 S0\\n;===== prepare print temperature and material end =====\\n\\n;M400\\n;M73 P1.717\\n\\n;===== auto extrude cali start =========================\\nM975 S1\\n;G392 S1\\n\\nG90\\nM83\\nT1000\\nG1 X-48.2 Y0 Z10 F10000\\nM400\\nM1002 set_filament_type:UNKNOWN\\n\\nM412 S1 ;  ===turn on  filament runout detection===\\nM400 P10\\nM620.3 W1; === turn on filament tangle detection===\\nM400 S2\\n\\nM1002 set_filament_type:{filament_type[initial_no_support_extruder]}\\n\\n;M1002 set_flag extrude_cali_flag=1\\nM1002 judge_flag extrude_cali_flag\\n\\nM622 J1\\n    M1002 gcode_claim_action : 8\\n\\n    M109 S{nozzle_temperature[initial_extruder]}\\n    G1 E10 F{outer_wall_volumetric_speed/2.4*60}\\n    M983 F{outer_wall_volumetric_speed/2.4} A0.3 H[nozzle_diameter]; cali dynamic extrusion compensation\\n\\n    M106 P1 S255\\n    M400 S5\\n    G1 X-28.5 F18000\\n    G1 X-48.2 F3000\\n    G1 X-28.5 F18000 ;wipe and shake\\n    G1 X-48.2 F3000\\n    G1 X-28.5 F12000 ;wipe and shake\\n    G1 X-48.2 F3000\\n    M400\\n    M106 P1 S0\\n\\n    M1002 judge_last_extrude_cali_success\\n    M622 J0\\n        M983 F{outer_wall_volumetric_speed/2.4} A0.3 H[nozzle_diameter]; cali dynamic extrusion compensation\\n        M106 P1 S255\\n        M400 S5\\n        G1 X-28.5 F18000\\n        G1 X-48.2 F3000\\n        G1 X-28.5 F18000 ;wipe and shake\\n        G1 X-48.2 F3000\\n        G1 X-28.5 F12000 ;wipe and shake\\n        M400\\n        M106 P1 S0\\n    M623\\n    \\n    G1 X-48.2 F3000\\n    M400\\n    M984 A0.1 E1 S1 F{outer_wall_volumetric_speed/2.4} H[nozzle_diameter]\\n    M106 P1 S178\\n    M400 S7\\n    G1 X-28.5 F18000\\n    G1 X-48.2 F3000\\n    G1 X-28.5 F18000 ;wipe and shake\\n    G1 X-48.2 F3000\\n    G1 X-28.5 F12000 ;wipe and shake\\n    G1 X-48.2 F3000\\n    M400\\n    M106 P1 S0\\nM623 ; end of \\\"draw extrinsic para cali paint\\\"\\n\\n;G392 S0\\n;===== auto extrude cali end ========================\\n\\n;M400\\n;M73 P1.717\\n\\nM104 S170 ; prepare to wipe nozzle\\nM106 S255 ; turn on fan\\n\\n;===== mech mode fast check start =====================\\nM1002 gcode_claim_action : 3\\n\\nG1 X128 Y128 F20000\\nG1 Z5 F1200\\nM400 P200\\nM970.3 Q1 A5 K0 O3\\nM974 Q1 S2 P0\\n\\nM970.2 Q1 K1 W58 Z0.1\\nM974 S2\\n\\nG1 X128 Y128 F20000\\nG1 Z5 F1200\\nM400 P200\\nM970.3 Q0 A10 K0 O1\\nM974 Q0 S2 P0\\n\\nM970.2 Q0 K1 W78 Z0.1\\nM974 S2\\n\\nM975 S1\\nG1 F30000\\nG1 X0 Y5\\nG28 X ; re-home XY\\n\\nG1 Z4 F1200\\n\\n;===== mech mode fast check end =======================\\n\\n;M400\\n;M73 P1.717\\n\\n;===== wipe nozzle ===============================\\nM1002 gcode_claim_action : 14\\n\\nM975 S1\\nM106 S255 ; turn on fan (G28 has turn off fan)\\nM211 S; push soft endstop status\\nM211 X0 Y0 Z0 ;turn off Z axis endstop\\n\\n;===== remove waste by touching start =====\\n\\nM104 S170 ; set temp down to heatbed acceptable\\n\\nM83\\nG1 E-1 F500\\nG90\\nM83\\n\\nM109 S170\\nG0 X108 Y-0.5 F30000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X110 F10000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X112 F10000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X114 F10000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X116 F10000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X118 F10000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X120 F10000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X122 F10000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X124 F10000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X126 F10000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X128 F10000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X130 F10000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X132 F10000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X134 F10000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X136 F10000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X138 F10000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X140 F10000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X142 F10000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X144 F10000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X146 F10000\\nG380 S3 Z-5 F1200\\nG1 Z2 F1200\\nG1 X148 F10000\\nG380 S3 Z-5 F1200\\n\\nG1 Z5 F30000\\n;===== remove waste by touching end =====\\n\\nG1 Z10 F1200\\nG0 X118 Y261 F30000\\nG1 Z5 F1200\\nM109 S{nozzle_temperature_initial_layer[initial_extruder]-50}\\n\\nG28 Z P0 T300; home z with low precision,permit 300deg temperature\\nG29.2 S0 ; turn off ABL\\nM104 S140 ; prepare to abl\\nG0 Z5 F20000\\n\\nG0 X128 Y261 F20000  ; move to exposed steel surface\\nG0 Z-1.01 F1200      ; stop the nozzle\\n\\nG91\\nG2 I1 J0 X2 Y0 F2000.1\\nG2 I-0.75 J0 X-1.5\\nG2 I1 J0 X2\\nG2 I-0.75 J0 X-1.5\\nG2 I1 J0 X2\\nG2 I-0.75 J0 X-1.5\\nG2 I1 J0 X2\\nG2 I-0.75 J0 X-1.5\\nG2 I1 J0 X2\\nG2 I-0.75 J0 X-1.5\\nG2 I1 J0 X2\\nG2 I-0.75 J0 X-1.5\\nG2 I1 J0 X2\\nG2 I-0.75 J0 X-1.5\\nG2 I1 J0 X2\\nG2 I-0.75 J0 X-1.5\\nG2 I1 J0 X2\\nG2 I-0.75 J0 X-1.5\\nG2 I1 J0 X2\\nG2 I-0.75 J0 X-1.5\\n\\nG90\\nG1 Z10 F1200\\n\\n;===== brush material wipe nozzle =====\\n\\nG90\\nG1 Y250 F30000\\nG1 X55\\nG1 Z1.300 F1200\\nG1 Y262.5 F6000\\nG91\\nG1 X-35 F30000\\nG1 Y-0.5\\nG1 X45\\nG1 Y-0.5\\nG1 X-45\\nG1 Y-0.5\\nG1 X45\\nG1 Y-0.5\\nG1 X-45\\nG1 Y-0.5\\nG1 X45\\nG1 Z5.000 F1200\\n\\nG90\\nG1 X30 Y250.000 F30000\\nG1 Z1.300 F1200\\nG1 Y262.5 F6000\\nG91\\nG1 X35 F30000\\nG1 Y-0.5\\nG1 X-45\\nG1 Y-0.5\\nG1 X45\\nG1 Y-0.5\\nG1 X-45\\nG1 Y-0.5\\nG1 X45\\nG1 Y-0.5\\nG1 X-45\\nG1 Z10.000 F1200\\n\\n;===== brush material wipe nozzle end =====\\n\\nG90\\n;G0 X128 Y261 F20000  ; move to exposed steel surface\\nG1 Y250 F30000\\nG1 X138\\nG1 Y261\\nG0 Z-1.01 F1200      ; stop the nozzle\\n\\nG91\\nG2 I1 J0 X2 Y0 F2000.1\\nG2 I-0.75 J0 X-1.5\\nG2 I1 J0 X2\\nG2 I-0.75 J0 X-1.5\\nG2 I1 J0 X2\\nG2 I-0.75 J0 X-1.5\\nG2 I1 J0 X2\\nG2 I-0.75 J0 X-1.5\\nG2 I1 J0 X2\\nG2 I-0.75 J0 X-1.5\\nG2 I1 J0 X2\\nG2 I-0.75 J0 X-1.5\\nG2 I1 J0 X2\\nG2 I-0.75 J0 X-1.5\\nG2 I1 J0 X2\\nG2 I-0.75 J0 X-1.5\\nG2 I1 J0 X2\\nG2 I-0.75 J0 X-1.5\\nG2 I1 J0 X2\\nG2 I-0.75 J0 X-1.5\\n\\nM109 S140\\nM106 S255 ; turn on fan (G28 has turn off fan)\\n\\nM211 R; pop softend status\\n\\n;===== wipe nozzle end ================================\\n\\n;M400\\n;M73 P1.717\\n\\n;===== bed leveling ==================================\\nM1002 judge_flag g29_before_print_flag\\n\\nG90\\nG1 Z5 F1200\\nG1 X0 Y0 F30000\\nG29.2 S1 ; turn on ABL\\n\\nM190 S[bed_temperature_initial_layer_single]; ensure bed temp\\nM109 S140\\nM106 S0 ; turn off fan , too noisy\\n\\nM622 J1\\n    M1002 gcode_claim_action : 1\\n    G29 A1 X{first_layer_print_min[0]} Y{first_layer_print_min[1]} I{first_layer_print_size[0]} J{first_layer_print_size[1]}\\n    M400\\n    M500 ; save cali data\\nM623\\n;===== bed leveling end ================================\\n\\n;===== home after wipe mouth============================\\nM1002 judge_flag g29_before_print_flag\\nM622 J0\\n\\n    M1002 gcode_claim_action : 13\\n    G28\\n\\nM623\\n\\n;===== home after wipe mouth end =======================\\n\\n;M400\\n;M73 P1.717\\n\\nG1 X108.000 Y-0.500 F30000\\nG1 Z0.300 F1200\\nM400\\nG2814 Z0.32\\n\\nM104 S{nozzle_temperature_initial_layer[initial_extruder]} ; prepare to print\\n\\n;===== nozzle load line ===============================\\n;G90\\n;M83\\n;G1 Z5 F1200\\n;G1 X88 Y-0.5 F20000\\n;G1 Z0.3 F1200\\n\\n;M109 S{nozzle_temperature_initial_layer[initial_extruder]}\\n\\n;G1 E2 F300\\n;G1 X168 E4.989 F6000\\n;G1 Z1 F1200\\n;===== nozzle load line end ===========================\\n\\n;===== extrude cali test ===============================\\n\\nM400\\n    M900 S\\n    M900 C\\n    G90\\n    M83\\n\\n    M109 S{nozzle_temperature_initial_layer[initial_extruder]}\\n    G0 X128 E8  F{outer_wall_volumetric_speed/(24/20)    * 60}\\n    G0 X133 E.3742  F{outer_wall_volumetric_speed/(0.3*0.5)/4     * 60}\\n    G0 X138 E.3742  F{outer_wall_volumetric_speed/(0.3*0.5)     * 60}\\n    G0 X143 E.3742  F{outer_wall_volumetric_speed/(0.3*0.5)/4     * 60}\\n    G0 X148 E.3742  F{outer_wall_volumetric_speed/(0.3*0.5)     * 60}\\n    G0 X153 E.3742  F{outer_wall_volumetric_speed/(0.3*0.5)/4     * 60}\\n    G91\\n    G1 X1 Z-0.300\\n    G1 X4\\n    G1 Z1 F1200\\n    G90\\n    M400\\n\\nM900 R\\n\\nM1002 judge_flag extrude_cali_flag\\nM622 J1\\n    G90\\n    G1 X108.000 Y1.000 F30000\\n    G91\\n    G1 Z-0.700 F1200\\n    G90\\n    M83\\n    G0 X128 E10  F{outer_wall_volumetric_speed/(24/20)    * 60}\\n    G0 X133 E.3742  F{outer_wall_volumetric_speed/(0.3*0.5)/4     * 60}\\n    G0 X138 E.3742  F{outer_wall_volumetric_speed/(0.3*0.5)     * 60}\\n    G0 X143 E.3742  F{outer_wall_volumetric_speed/(0.3*0.5)/4     * 60}\\n    G0 X148 E.3742  F{outer_wall_volumetric_speed/(0.3*0.5)     * 60}\\n    G0 X153 E.3742  F{outer_wall_volumetric_speed/(0.3*0.5)/4     * 60}\\n    G91\\n    G1 X1 Z-0.300\\n    G1 X4\\n    G1 Z1 F1200\\n    G90\\n    M400\\nM623\\n\\nG1 Z0.2\\n\\n;M400\\n;M73 P1.717\\n\\n;========turn off light and wait extrude temperature =============\\nM1002 gcode_claim_action : 0\\nM400\\n\\n;===== for Textured PEI Plate , lower the nozzle as the nozzle was touching topmost of the texture when homing ==\\n;curr_bed_type={curr_bed_type}\\n{if curr_bed_type==\\\"Textured PEI Plate\\\"}\\nG29.1 Z{-0.02} ; for Textured PEI Plate\\n{endif}\\n\\nM960 S1 P0 ; turn off laser\\nM960 S2 P0 ; turn off laser\\nM106 S0 ; turn off fan\\nM106 P2 S0 ; turn off big fan\\nM106 P3 S0 ; turn off chamber fan\\n\\nM975 S1 ; turn on mech mode supression\\nG90\\nM83\\nT1000\\n\\nM211 X0 Y0 Z0 ;turn off soft endstop\\n;G392 S1 ; turn on clog detection\\nM1007 S1 ; turn on mass estimation\\nG29.4\\n\",\n    \"machine_switch_extruder_time\": \"0\",\n    \"machine_unload_filament_time\": \"29\",\n    \"master_extruder_id\": \"1\",\n    \"max_bridge_length\": \"0\",\n    \"max_layer_height\": [\n        \"0.28\"\n    ],\n    \"max_travel_detour_distance\": \"0\",\n    \"min_bead_width\": \"85%\",\n    \"min_feature_size\": \"25%\",\n    \"min_layer_height\": [\n        \"0.08\"\n    ],\n    \"minimum_sparse_infill_area\": \"15\",\n    \"mmu_segmented_region_interlocking_depth\": \"0\",\n    \"mmu_segmented_region_max_width\": \"0\",\n    \"name\": \"project_settings\",\n    \"nozzle_diameter\": [\n        \"0.4\"\n    ],\n    \"nozzle_height\": \"4.76\",\n    \"nozzle_temperature\": [\n        \"220\",\n        \"220\",\n        \"255\"\n    ],\n    \"nozzle_temperature_initial_layer\": [\n        \"220\",\n        \"220\",\n        \"255\"\n    ],\n    \"nozzle_temperature_range_high\": [\n        \"240\",\n        \"240\",\n        \"270\"\n    ],\n    \"nozzle_temperature_range_low\": [\n        \"190\",\n        \"190\",\n        \"220\"\n    ],\n    \"nozzle_type\": [\n        \"stainless_steel\"\n    ],\n    \"nozzle_volume\": [\n        \"92\"\n    ],\n    \"nozzle_volume_type\": [\n        \"Standard\"\n    ],\n    \"only_one_wall_first_layer\": \"0\",\n    \"ooze_prevention\": \"0\",\n    \"other_layers_print_sequence\": [\n        \"0\"\n    ],\n    \"other_layers_print_sequence_nums\": \"0\",\n    \"outer_wall_acceleration\": [\n        \"5000\"\n    ],\n    \"outer_wall_jerk\": \"9\",\n    \"outer_wall_line_width\": \"0.42\",\n    \"outer_wall_speed\": [\n        \"200\"\n    ],\n    \"overhang_1_4_speed\": [\n        \"60\"\n    ],\n    \"overhang_2_4_speed\": [\n        \"30\"\n    ],\n    \"overhang_3_4_speed\": [\n        \"10\"\n    ],\n    \"overhang_4_4_speed\": [\n        \"10\"\n    ],\n    \"overhang_fan_speed\": [\n        \"100\",\n        \"100\",\n        \"90\"\n    ],\n    \"overhang_fan_threshold\": [\n        \"50%\",\n        \"50%\",\n        \"10%\"\n    ],\n    \"overhang_threshold_participating_cooling\": [\n        \"95%\",\n        \"95%\",\n        \"95%\"\n    ],\n    \"overhang_totally_speed\": [\n        \"10\"\n    ],\n    \"physical_extruder_map\": [\n        \"0\"\n    ],\n    \"post_process\": [],\n    \"pre_start_fan_time\": [\n        \"0\",\n        \"0\",\n        \"0\"\n    ],\n    \"precise_z_height\": \"0\",\n    \"pressure_advance\": [\n        \"0.02\",\n        \"0.02\",\n        \"0.02\"\n    ],\n    \"prime_tower_brim_width\": \"3\",\n    \"prime_tower_enable_framework\": \"0\",\n    \"prime_tower_extra_rib_length\": \"0\",\n    \"prime_tower_fillet_wall\": \"1\",\n    \"prime_tower_infill_gap\": \"150%\",\n    \"prime_tower_lift_height\": \"-1\",\n    \"prime_tower_lift_speed\": \"90\",\n    \"prime_tower_max_speed\": \"90\",\n    \"prime_tower_rib_wall\": \"1\",\n    \"prime_tower_rib_width\": \"8\",\n    \"prime_tower_skip_points\": \"1\",\n    \"prime_tower_width\": \"35\",\n    \"print_compatible_printers\": [\n        \"Bambu Lab A1 0.4 nozzle\"\n    ],\n    \"print_extruder_id\": [\n        \"1\"\n    ],\n    \"print_extruder_variant\": [\n        \"Direct Drive Standard\"\n    ],\n    \"print_flow_ratio\": \"1\",\n    \"print_sequence\": \"by layer\",\n    \"print_settings_id\": \"0.16mm Optimal @BBL A1\",\n    \"printable_area\": [\n        \"0x0\",\n        \"256x0\",\n        \"256x256\",\n        \"0x256\"\n    ],\n    \"printable_height\": \"256\",\n    \"printer_extruder_id\": [\n        \"1\"\n    ],\n    \"printer_extruder_variant\": [\n        \"Direct Drive Standard\"\n    ],\n    \"printer_model\": \"Bambu Lab A1\",\n    \"printer_notes\": \"\",\n    \"printer_settings_id\": \"Bambu Lab A1 0.4 nozzle\",\n    \"printer_structure\": \"i3\",\n    \"printer_technology\": \"FFF\",\n    \"printer_variant\": \"0.4\",\n    \"printhost_authorization_type\": \"key\",\n    \"printhost_ssl_ignore_revoke\": \"0\",\n    \"printing_by_object_gcode\": \"\",\n    \"process_notes\": \"\",\n    \"raft_contact_distance\": \"0.1\",\n    \"raft_expansion\": \"1.5\",\n    \"raft_first_layer_density\": \"90%\",\n    \"raft_first_layer_expansion\": \"2\",\n    \"raft_layers\": \"0\",\n    \"reduce_crossing_wall\": \"0\",\n    \"reduce_fan_stop_start_freq\": [\n        \"1\",\n        \"1\",\n        \"1\"\n    ],\n    \"reduce_infill_retraction\": \"1\",\n    \"required_nozzle_HRC\": [\n        \"3\",\n        \"3\",\n        \"3\"\n    ],\n    \"resolution\": \"0.012\",\n    \"retract_before_wipe\": [\n        \"0%\"\n    ],\n    \"retract_length_toolchange\": [\n        \"2\"\n    ],\n    \"retract_lift_above\": [\n        \"0\"\n    ],\n    \"retract_lift_below\": [\n        \"255\"\n    ],\n    \"retract_restart_extra\": [\n        \"0\"\n    ],\n    \"retract_restart_extra_toolchange\": [\n        \"0\"\n    ],\n    \"retract_when_changing_layer\": [\n        \"1\"\n    ],\n    \"retraction_distances_when_cut\": [\n        \"18\"\n    ],\n    \"retraction_length\": [\n        \"0.8\"\n    ],\n    \"retraction_minimum_travel\": [\n        \"1\"\n    ],\n    \"retraction_speed\": [\n        \"30\"\n    ],\n    \"role_base_wipe_speed\": \"1\",\n    \"scan_first_layer\": \"0\",\n    \"scarf_angle_threshold\": \"155\",\n    \"seam_gap\": \"15%\",\n    \"seam_position\": \"aligned\",\n    \"seam_slope_conditional\": \"1\",\n    \"seam_slope_entire_loop\": \"0\",\n    \"seam_slope_inner_walls\": \"1\",\n    \"seam_slope_steps\": \"10\",\n    \"silent_mode\": \"0\",\n    \"single_extruder_multi_material\": \"1\",\n    \"skirt_distance\": \"2\",\n    \"skirt_height\": \"1\",\n    \"skirt_loops\": \"0\",\n    \"slice_closing_radius\": \"0.049\",\n    \"slicing_mode\": \"regular\",\n    \"slow_down_for_layer_cooling\": [\n        \"1\",\n        \"1\",\n        \"1\"\n    ],\n    \"slow_down_layer_time\": [\n        \"6\",\n        \"8\",\n        \"12\"\n    ],\n    \"slow_down_min_speed\": [\n        \"20\",\n        \"20\",\n        \"20\"\n    ],\n    \"small_perimeter_speed\": [\n        \"50%\"\n    ],\n    \"small_perimeter_threshold\": [\n        \"0\"\n    ],\n    \"smooth_coefficient\": \"80\",\n    \"smooth_speed_discontinuity_area\": \"1\",\n    \"solid_infill_filament\": \"1\",\n    \"sparse_infill_acceleration\": [\n        \"100%\"\n    ],\n    \"sparse_infill_anchor\": \"400%\",\n    \"sparse_infill_anchor_max\": \"20\",\n    \"sparse_infill_density\": \"15%\",\n    \"sparse_infill_filament\": \"1\",\n    \"sparse_infill_line_width\": \"0.45\",\n    \"sparse_infill_pattern\": \"grid\",\n    \"sparse_infill_speed\": [\n        \"330\"\n    ],\n    \"spiral_mode\": \"0\",\n    \"spiral_mode_max_xy_smoothing\": \"200%\",\n    \"spiral_mode_smooth\": \"0\",\n    \"standby_temperature_delta\": \"-5\",\n    \"start_end_points\": [\n        \"30x-3\",\n        \"54x245\"\n    ],\n    \"supertack_plate_temp\": [\n        \"45\",\n        \"35\",\n        \"70\"\n    ],\n    \"supertack_plate_temp_initial_layer\": [\n        \"45\",\n        \"35\",\n        \"70\"\n    ],\n    \"support_air_filtration\": \"0\",\n    \"support_angle\": \"0\",\n    \"support_base_pattern\": \"default\",\n    \"support_base_pattern_spacing\": \"2.5\",\n    \"support_bottom_interface_spacing\": \"0.5\",\n    \"support_bottom_z_distance\": \"0.16\",\n    \"support_chamber_temp_control\": \"0\",\n    \"support_critical_regions_only\": \"1\",\n    \"support_expansion\": \"0\",\n    \"support_filament\": \"0\",\n    \"support_interface_bottom_layers\": \"2\",\n    \"support_interface_filament\": \"0\",\n    \"support_interface_loop_pattern\": \"0\",\n    \"support_interface_not_for_body\": \"1\",\n    \"support_interface_pattern\": \"auto\",\n    \"support_interface_spacing\": \"0.5\",\n    \"support_interface_speed\": [\n        \"80\"\n    ],\n    \"support_interface_top_layers\": \"2\",\n    \"support_line_width\": \"0.42\",\n    \"support_object_first_layer_gap\": \"0.2\",\n    \"support_object_xy_distance\": \"0.35\",\n    \"support_on_build_plate_only\": \"1\",\n    \"support_remove_small_overhang\": \"1\",\n    \"support_speed\": [\n        \"150\"\n    ],\n    \"support_style\": \"default\",\n    \"support_threshold_angle\": \"25\",\n    \"support_top_z_distance\": \"0.16\",\n    \"support_type\": \"tree(auto)\",\n    \"symmetric_infill_y_axis\": \"0\",\n    \"temperature_vitrification\": [\n        \"45\",\n        \"45\",\n        \"70\"\n    ],\n    \"template_custom_gcode\": \"\",\n    \"textured_plate_temp\": [\n        \"65\",\n        \"55\",\n        \"80\"\n    ],\n    \"textured_plate_temp_initial_layer\": [\n        \"65\",\n        \"55\",\n        \"80\"\n    ],\n    \"thick_bridges\": \"0\",\n    \"thumbnail_size\": [\n        \"50x50\"\n    ],\n    \"time_lapse_gcode\": \";===================== date: 20250206 =====================\\n{if !spiral_mode && print_sequence != \\\"by object\\\"}\\n; don't support timelapse gcode in spiral_mode and by object sequence for I3 structure printer\\n; SKIPPABLE_START\\n; SKIPTYPE: timelapse\\nM622.1 S1 ; for prev firware, default turned on\\nM1002 judge_flag timelapse_record_flag\\nM622 J1\\nG92 E0\\nG1 Z{max_layer_z + 0.4}\\nG1 X0 Y{first_layer_center_no_wipe_tower[1]} F18000 ; move to safe pos\\nG1 X-48.2 F3000 ; move to safe pos\\nM400\\nM1004 S5 P1  ; external shutter\\nM400 P300\\nM971 S11 C11 O0\\nG92 E0\\nG1 X0 F18000\\nM623\\n\\n; SKIPTYPE: head_wrap_detect\\nM622.1 S1\\nM1002 judge_flag g39_3rd_layer_detect_flag\\nM622 J1\\n    ; enable nozzle clog detect at 3rd layer\\n    {if layer_num == 2}\\n      M400\\n      G90\\n      M83\\n      M204 S5000\\n      G0 Z2 F4000\\n      G0 X261 Y250 F20000\\n      M400 P200\\n      G39 S1\\n      G0 Z2 F4000\\n    {endif}\\n\\n\\n    M622.1 S1\\n    M1002 judge_flag g39_detection_flag\\n    M622 J1\\n      {if !in_head_wrap_detect_zone}\\n        M622.1 S0\\n        M1002 judge_flag g39_mass_exceed_flag\\n        M622 J1\\n        {if layer_num > 2}\\n            G392 S0\\n            M400\\n            G90\\n            M83\\n            M204 S5000\\n            G0 Z{max_layer_z + 0.4} F4000\\n            G39.3 S1\\n            G0 Z{max_layer_z + 0.4} F4000\\n            G392 S0\\n          {endif}\\n        M623\\n    {endif}\\n    M623\\nM623\\n; SKIPPABLE_END\\n{endif}\\n\",\n    \"timelapse_type\": \"0\",\n    \"top_area_threshold\": \"200%\",\n    \"top_color_penetration_layers\": \"6\",\n    \"top_one_wall_type\": \"all top\",\n    \"top_shell_layers\": \"6\",\n    \"top_shell_thickness\": \"1\",\n    \"top_solid_infill_flow_ratio\": \"1\",\n    \"top_surface_acceleration\": [\n        \"2000\"\n    ],\n    \"top_surface_jerk\": \"9\",\n    \"top_surface_line_width\": \"0.42\",\n    \"top_surface_pattern\": \"monotonicline\",\n    \"top_surface_speed\": [\n        \"200\"\n    ],\n    \"travel_acceleration\": [\n        \"10000\"\n    ],\n    \"travel_jerk\": \"9\",\n    \"travel_speed\": [\n        \"700\"\n    ],\n    \"travel_speed_z\": [\n        \"0\"\n    ],\n    \"tree_support_branch_angle\": \"45\",\n    \"tree_support_branch_diameter\": \"2\",\n    \"tree_support_branch_diameter_angle\": \"5\",\n    \"tree_support_branch_distance\": \"5\",\n    \"tree_support_wall_count\": \"0\",\n    \"unprintable_filament_types\": [\n        \"\"\n    ],\n    \"upward_compatible_machine\": [\n        \"Bambu Lab H2D 0.4 nozzle\"\n    ],\n    \"use_firmware_retraction\": \"0\",\n    \"use_relative_e_distances\": \"1\",\n    \"version\": \"02.00.03.54\",\n    \"vertical_shell_speed\": [\n        \"80%\"\n    ],\n    \"wall_distribution_count\": \"1\",\n    \"wall_filament\": \"1\",\n    \"wall_generator\": \"classic\",\n    \"wall_loops\": \"2\",\n    \"wall_sequence\": \"inner wall/outer wall\",\n    \"wall_transition_angle\": \"10\",\n    \"wall_transition_filter_deviation\": \"25%\",\n    \"wall_transition_length\": \"100%\",\n    \"wipe\": [\n        \"1\"\n    ],\n    \"wipe_distance\": [\n        \"2\"\n    ],\n    \"wipe_speed\": \"80%\",\n    \"wipe_tower_no_sparse_layers\": \"0\",\n    \"wipe_tower_rotation_angle\": \"0\",\n    \"wipe_tower_x\": [\n        \"0\"\n    ],\n    \"wipe_tower_y\": [\n        \"250\"\n    ],\n    \"xy_contour_compensation\": \"0\",\n    \"xy_hole_compensation\": \"0\",\n    \"z_direction_outwall_speed_continuous\": \"0\",\n    \"z_hop\": [\n        \"0.4\"\n    ],\n    \"z_hop_types\": [\n        \"Auto Lift\"\n    ]\n}\n",
+};
+// </export-data>
+
+// <export>
+/* 3MF-Export – alles läuft im Browser, keine Datei wird hochgeladen. */
+/* Beide Profile sind 1:1 aus echten, im Bambu Studio des Users ladenden 3MFs
+   übernommen (P1S aus track_down_90_100.3mf, A1 aus Gardena_AG_a1.3mf).
+   Frühere Versuche, das A1-Profil aus einem neueren 02.09-Profil und der
+   P1S-Vorlage zusammenzusetzen, wurden vom Slicer abgelehnt („invalid
+   configuration" + „keine Geometriedaten") – die vom User geprüfte echte
+   Config lädt dagegen einwandfrei. Deshalb keine Profil-Konstruktion mehr. */
+const PRINTERS = {
+  p1s: {label:'Bambu Lab P1S', bed:256, height:256, ver:'02.01.01.52', profile:BAMBU_PROFILES.p1s},
+  a1:  {label:'Bambu Lab A1',  bed:256, height:256, ver:'02.01.01.52', profile:BAMBU_PROFILES.a1}
+};
+const PATTERN_OPTS = [
+  {id:'hex',             de:'Hex (Original)',              en:'Hex (original)'},
+  {id:'blank',           de:'Blank (Original)',            en:'Blank (original)'},
+  {id:'bars',            de:'Bars (Original)',             en:'Bars (original)'},
+  {id:'cablemanagement', de:'Kabelmanagement (Original)',  en:'Cable management (original)'},
+  {id:'nautilus',        de:'Nautilus (Evolution)',        en:'Nautilus (Evolution)'},
+  {id:'mattehex',        de:'Matte Hex (Evolution)',       en:'Matte hex (Evolution)'},
+  {id:'3dhex',           de:'3D-Hex seamless (Evolution)', en:'3D hex seamless (Evolution)'}
+];
+const EXPORT_GAP = 2; // mm Abstand zwischen zwei Teilen auf einer Platte
+
+function xmlEsc(s){
+  return String(s).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));
+}
+function uuidTail(n, tail){ return n.toString(16).padStart(8,'0') + tail; }
+
+const CRC_TABLE = new Uint32Array(256).map((_, n)=>{
+  let c = n;
+  for(let k=0;k<8;k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+  return c >>> 0;
+});
+function crc32(crc, bytes){
+  crc = ~crc;
+  for(let i=0;i<bytes.length;i++) crc = CRC_TABLE[(crc ^ bytes[i]) & 255] ^ (crc >>> 8);
+  return (~crc) >>> 0;
+}
+
+/* Minimaler ZIP-Schreiber: deflate-raw wenn verfügbar, sonst unkomprimiert (store).
+   Jeder Eintrag wird streamsweise geschrieben – große Netze liegen nie als Text im Speicher. */
+function zipWriter(){
+  const parts = [], dir = [], now = new Date();
+  let offset = 0;
+  const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  const enc = new TextEncoder();
+  const u16 = (v,a,o)=>{ a[o]=v&255; a[o+1]=(v>>>8)&255; };
+  const u32 = (v,a,o)=>{ u16(v&0xffff,a,o); u16(v>>>16,a,o+2); };
+  const canDeflate = typeof CompressionStream === 'function';
+  return {
+    async add(name, writeAll){
+      const raw = [];
+      let crc = 0, size = 0;
+      await writeAll(async chunk=>{
+        const b = typeof chunk === 'string' ? enc.encode(chunk) : chunk;
+        if(!b.length) return;
+        raw.push(b); size += b.length; crc = crc32(crc, b);
+      });
+      let data, method;
+      if(canDeflate){
+        const cs = new CompressionStream('deflate-raw');
+        const writer = cs.writable.getWriter();
+        const done = new Response(cs.readable).arrayBuffer();
+        for(const b of raw){ await writer.ready; writer.write(b); }
+        await writer.close();
+        data = new Uint8Array(await done); method = 8;
+      }else{
+        const merged = new Uint8Array(size);
+        let at = 0;
+        for(const b of raw){ merged.set(b, at); at += b.length; }
+        data = merged; method = 0;
+      }
+      const nm = enc.encode(name);
+      if(offset + data.length > 0xFFFFFFF0 || size > 0xFFFFFFF0) throw new Error('3MF too large');
+      const h = new Uint8Array(30 + nm.length);
+      u32(0x04034b50,h,0); u16(20,h,4); u16(0x800,h,6); u16(method,h,8);
+      u16(dosTime,h,10); u16(dosDate,h,12); u32(crc,h,14);
+      u32(data.length,h,18); u32(size,h,22); u16(nm.length,h,26); h.set(nm,30);
+      const c = new Uint8Array(46 + nm.length);
+      u32(0x02014b50,c,0); u16(20,c,4); u16(20,c,6); u16(0x800,c,8); u16(method,c,10);
+      u16(dosTime,c,12); u16(dosDate,c,14); u32(crc,c,16);
+      u32(data.length,c,20); u32(size,c,24); u16(nm.length,c,28); u32(offset,c,42); c.set(nm,46);
+      parts.push(h, data); dir.push(c);
+      offset += h.length + data.length;
+    },
+    text(name, s){ return this.add(name, put => put(s)); },
+    blob(){
+      const size = dir.reduce((a,c)=>a+c.length, 0), e = new Uint8Array(22);
+      u32(0x06054b50,e,0); u16(dir.length,e,8); u16(dir.length,e,10);
+      u32(size,e,12); u32(offset,e,16);
+      return new Blob([...parts, ...dir, e], {type:'model/3mf'});
+    }
+  };
+}
+
+/* STL lesen: binär oder ASCII, Ecken verschweißen, auf 0/0/0 verschieben.
+   Bewusst KEINE Drehung – die Export-Ausrichtung aus der STL bleibt erhalten. */
+function readStl(buf, name){
+  const dv = new DataView(buf);
+  const n = buf.byteLength >= 84 ? dv.getUint32(80, true) : 0;
+  let coords;
+  if(84 + n*50 === buf.byteLength){
+    coords = new Float32Array(n*9);
+    for(let i=0;i<n;i++) for(let k=0;k<9;k++) coords[i*9+k] = dv.getFloat32(84+i*50+12+k*4, true);
+  }else{
+    const hits = new TextDecoder().decode(buf).match(/vertex\s+\S+\s+\S+\s+\S+/g) || [];
+    coords = new Float32Array(hits.length*3);
+    hits.forEach((v,i)=>{ v.trim().split(/\s+/).slice(1).forEach((x,k)=>{ coords[i*3+k] = +x; }); });
+  }
+  const triCount = coords.length/9;
+  if(!triCount) throw new Error('empty STL: ' + (name || '?'));
+
+  const cap = 1 << Math.ceil(Math.log2(Math.max(16, triCount*6)));
+  const keys = new Int32Array(cap).fill(-1);
+  const pts = [], idx = new Uint32Array(triCount*3);
+  const q = v => Math.round(v*1000);
+  for(let v=0; v<triCount*3; v++){
+    const x=coords[v*3], y=coords[v*3+1], z=coords[v*3+2];
+    let h = (Math.imul(q(x),73856093) ^ Math.imul(q(y),19349663) ^ Math.imul(q(z),83492791)) & (cap-1);
+    for(;;){
+      const j = keys[h];
+      if(j < 0){
+        keys[h] = pts.length/3;
+        pts.push(x,y,z);
+        idx[v] = pts.length/3 - 1;
+        break;
+      }
+      if(pts[j*3]===x && pts[j*3+1]===y && pts[j*3+2]===z){ idx[v] = j; break; }
+      h = (h+1) & (cap-1);
+    }
+  }
+  const tris = [];
+  for(let i=0;i<idx.length;i+=3){
+    if(idx[i]!==idx[i+1] && idx[i+1]!==idx[i+2] && idx[i]!==idx[i+2]) tris.push(idx[i],idx[i+1],idx[i+2]);
+  }
+  const mn = [Infinity,Infinity,Infinity], mx = [-Infinity,-Infinity,-Infinity];
+  const out = new Float32Array(pts);
+  for(let i=0;i<out.length;i+=3) for(let k=0;k<3;k++){
+    if(out[i+k]<mn[k]) mn[k]=out[i+k];
+    if(out[i+k]>mx[k]) mx[k]=out[i+k];
+  }
+  for(let i=0;i<out.length;i+=3) for(let k=0;k<3;k++) out[i+k] -= mn[k];
+  return {pts:out, tris:Uint32Array.from(tris), w:mx[0]-mn[0], h:mx[1]-mn[1], d:mx[2]-mn[2]};
+}
+
+/* Die STLs liegen mit der Länge auf Z und der 35,8-mm-Breite auf X. Die echte
+   Bambu-Vorlage des Designers (track_down_90_100.3mf) dreht um die Y-Achse um
+   +90°: (x, y, z) ↦ (z, y, w - x). Danach liegt die Länge in X, die Profilhöhe
+   in Y und die Breite oben. Das ist eine echte Drehung (Erhaltung der
+   Dreiecksorientierung); readStl normalisiert alle Koordinaten auf >= 0. */
+function layFlat(m){
+  const pts = new Float64Array(m.pts.length);
+  for(let i=0;i<m.pts.length;i+=3){
+    pts[i]   = m.pts[i+2];
+    pts[i+1] = m.pts[i+1];
+    pts[i+2] = m.w - m.pts[i];
+  }
+  return {pts, tris:m.tris, w:m.d, h:m.h, d:m.w};
+}
+
+/* Flach legen, aber nur wenn das Teil danach auf die Platte passt. Andernfalls
+   bewusst hochkant in der STL-Ausrichtung exportieren (User-Entscheidung
+   20.11.2026) und über den Hinweis expUpright melden – die 260-mm-Nautilus-Skins
+   passen flach nicht auf 256 mm, hochkant bleiben sie erhalten. */
+function orientForBed(src, bed, auto){
+  if(!auto) return {mesh:src, rotated:false, upright:false};
+  const flat = layFlat(src);
+  if(flat.w > bed || flat.h > bed) return {mesh:src, rotated:false, upright:true};
+  return {mesh:flat, rotated:true, upright:false};
+}
+
+/* Regal-Packer: Teile nach langer Kante sortiert, zeilenweise auf die Platte.
+   Zu große Teile werden markiert und übersprungen. */
+function packPlates(pieces, bed, gap){
+  const sorted = pieces.slice().sort((a,b)=>Math.max(b.w,b.h)-Math.max(a.w,a.h));
+  const plates = [];
+  let plate = null, x = 0, y = 0, rowH = 0;
+  const nextPlate = ()=>{ if(plate && plate.length) plates.push({pieces:plate}); plate=null; x=0; y=0; rowH=0; };
+  for(const p of sorted){
+    if(p.w > bed || p.h > bed){ p.oversize = true; continue; }
+    p.oversize = false;
+    if(!plate) nextPlate();
+    if(plate && x + p.w + gap > bed){ x = 0; y += rowH + gap; rowH = 0; }
+    if(plate && y + p.h > bed) nextPlate();
+    if(!plate){ plate = []; }
+    p.x = x; p.y = y;
+    plate.push(p);
+    x += p.w + gap;
+    rowH = Math.max(rowH, p.h);
+  }
+  nextPlate();
+  return plates;
+}
+
+/* Aus Stückliste + Muster die Dateiliste ableiten. findFile(basename) -> relPath | null. */
+function derivePieces(parts, qty, pattern, findFile, includeTrack){
+  const pieces = [], missing = [], noSkin = [];
+  const add = (base, n, kind)=>{
+    if(!n || n<=0) return;
+    const path = findFile(base);
+    if(!path){ if(!missing.includes(base)) missing.push(base); return; }
+    const prev = pieces.find(p=>p.path===path);
+    if(prev) prev.qty += n;
+    else pieces.push({path, name:base, qty:n, kind});
+  };
+  for(const p of parts){
+    const n = qty[p.id] || 0;
+    if(!n) continue;
+    if(includeTrack !== false) add(p.file, n, 'track');
+    const skins = (SKIN_MAP[pattern] || {})[p.file] || [];
+    if(!skins.length && !noSkin.includes(p.file)) noSkin.push(p.file);
+    for(const skin of skins) add(skin, n, 'skin');
+  }
+  return {pieces, missing, noSkin};
+}
+
+/* Bambu-Studio-Projekt schreiben: ein <plate> pro Tab, ein Mesh pro Instanz. */
+async function build3mf(plates, printer, onProgress){
+  const bed = printer.bed;
+  const cols = Math.max(1, Math.ceil(Math.sqrt(plates.length)));
+  const NS = 'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" '
+    + 'xmlns:BambuStudio="http://schemas.bambulab.com/package/2021" '
+    + 'xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p"';
+  const today = new Date().toISOString().slice(0,10);
+  const z = zipWriter();
+  const objs=[], items=[], rels=[], settings=[], platesXml=[], cut=[];
+  let id = 1, done = 0;
+  const total = plates.reduce((a,p)=>a+p.pieces.length, 0) || 1;
+
+  // [Content_Types].xml muss laut OPC der erste Eintrag im ZIP sein.
+  await z.text('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8"?>\n`
+    + `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\n`
+    + ` <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\n`
+    + ` <Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>\n`
+    + ` <Default Extension="png" ContentType="image/png"/>\n <Default Extension="gcode" ContentType="text/x.gcode"/>\n</Types>\n`);
+
+  for(let pi=0; pi<plates.length; pi++){
+    const plate = plates[pi];
+    const ox = (pi % cols) * bed * 1.2;
+    const oy = -Math.floor(pi / cols) * bed * 1.2;
+    const inst = [];
+    for(const p of plate.pieces){
+      if(onProgress) onProgress(done/total, pi+1, plates.length, p.name);
+      const m = p.mesh;
+      const meshId = id++, objId = id++;
+      const file = `3D/Objects/object_${meshId}.model`;
+      await z.add(file, async put=>{
+        await put(`<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="en-US" ${NS}>\n`
+          + ` <metadata name="BambuStudio:3mfVersion">1</metadata>\n <resources>\n`
+          + `  <object id="${meshId}" p:UUID="${uuidTail(meshId,'-81cb-4c03-9d28-80fed5dfa1dc')}" type="model">\n   <mesh>\n    <vertices>\n`);
+        for(let a=0;a<m.pts.length;a+=60000){
+          let s='';
+          for(let i=a;i<Math.min(a+60000,m.pts.length);i+=3)
+            s += `     <vertex x="${m.pts[i].toFixed(4)}" y="${m.pts[i+1].toFixed(4)}" z="${m.pts[i+2].toFixed(4)}"/>\n`;
+          await put(s);
+        }
+        await put('    </vertices>\n    <triangles>\n');
+        for(let a=0;a<m.tris.length;a+=90000){
+          let s='';
+          for(let i=a;i<Math.min(a+90000,m.tris.length);i+=3)
+            s += `     <triangle v1="${m.tris[i]}" v2="${m.tris[i+1]}" v3="${m.tris[i+2]}"/>\n`;
+          await put(s);
+        }
+        await put('    </triangles>\n   </mesh>\n  </object>\n </resources>\n <build/>\n</model>\n');
+      });
+      const tx = ox + p.x, ty = oy + p.y;
+      objs.push(`  <object id="${objId}" p:UUID="${uuidTail(objId,'-61cb-4c03-9d28-80fed5dfa1dc')}" type="model">\n`
+        + `   <components>\n    <component p:path="/${file}" objectid="${meshId}" p:UUID="${uuidTail(meshId,'-b206-40ff-9872-83e8017abed1')}" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>\n`
+        + `   </components>\n  </object>\n`);
+      items.push(`  <item objectid="${objId}" p:UUID="${uuidTail(objId,'-b1ec-4553-aec9-835e5b724bb4')}" transform="1 0 0 0 1 0 0 0 1 ${tx.toFixed(3)} ${ty.toFixed(3)} 0" printable="1"/>\n`);
+      rels.push(` <Relationship Target="/${file}" Id="rel-${rels.length+1}" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>\n`);
+      const faces = m.tris.length / 3;
+      settings.push(`  <object id="${objId}">\n    <metadata key="name" value="${xmlEsc(p.name)}"/>\n    <metadata key="extruder" value="1"/>\n`
+        + `    <metadata face_count="${faces}"/>\n`
+        + `    <part id="1" subtype="normal_part">\n      <metadata key="name" value="${xmlEsc(p.name)}"/>\n`
+        + `      <metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>\n`
+        + `      <metadata key="source_file" value="${xmlEsc(p.name)}"/>\n`
+        + `      <metadata key="source_object_id" value="0"/>\n      <metadata key="source_volume_id" value="0"/>\n`
+        + `      <metadata key="source_offset_x" value="0"/>\n      <metadata key="source_offset_y" value="0"/>\n      <metadata key="source_offset_z" value="0"/>\n`
+        + `      <mesh_stat face_count="${faces}" edges_fixed="0" degenerate_facets="0" facets_removed="0" facets_reversed="0" backwards_edges="0"/>\n`
+        + `    </part>\n  </object>\n`);
+      inst.push(`    <model_instance>\n      <metadata key="object_id" value="${objId}"/>\n      <metadata key="instance_id" value="0"/>\n`
+        + `      <metadata key="identify_id" value="${objId}"/>\n    </model_instance>\n`);
+      cut.push(` <object id="${cut.length+1}">\n  <cut_id id="0" check_sum="1" connectors_cnt="0"/>\n </object>\n`);
+      done++;
+    }
+    const plateName = plate.label ? `${plate.label} ${pi+1}` : `Plate ${pi+1}`;
+    platesXml.push(`  <plate>\n    <metadata key="plater_id" value="${pi+1}"/>\n`
+      + `    <metadata key="plater_name" value="${xmlEsc(plateName)}"/>\n`
+      + `    <metadata key="locked" value="false"/>\n    <metadata key="filament_map_mode" value="Auto For Flush"/>\n${inst.join('')}  </plate>\n`);
+  }
+
+  await z.text('3D/3dmodel.model', `<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="en-US" ${NS}>\n`
+    + ` <metadata name="Application">BambuStudio-${printer.ver}</metadata>\n <metadata name="BambuStudio:3mfVersion">1</metadata>\n`
+    + ` <metadata name="CreationDate">${today}</metadata>\n <metadata name="ModificationDate">${today}</metadata>\n`
+    + ` <metadata name="Title">Duality LED Track</metadata>\n <resources>\n${objs.join('')} </resources>\n`
+    + ` <build p:UUID="2c7c17d8-22b5-4d84-8835-1976022ea369">\n${items.join('')} </build>\n</model>\n`);
+  await z.text('3D/_rels/3dmodel.model.rels', `<?xml version="1.0" encoding="UTF-8"?>\n`
+    + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n${rels.join('')}</Relationships>\n`);
+  await z.text('Metadata/model_settings.config', `<?xml version="1.0" encoding="UTF-8"?>\n<config>\n`
+    + `${settings.join('')}${platesXml.join('')}  <assemble>\n  </assemble>\n</config>\n`);
+  await z.text('Metadata/project_settings.config', printer.profile);
+  await z.text('Metadata/slice_info.config', `<?xml version="1.0" encoding="UTF-8"?>\n<config>\n  <header>\n`
+    + `    <header_item key="X-BBL-Client-Type" value="slicer"/>\n`
+    + `    <header_item key="X-BBL-Client-Version" value="${printer.ver}"/>\n  </header>\n</config>\n`);
+  await z.text('Metadata/cut_information.xml', `<?xml version="1.0" encoding="utf-8"?>\n<objects>\n${cut.join('')}</objects>\n`);
+  await z.text('_rels/.rels', `<?xml version="1.0" encoding="UTF-8"?>\n`
+    + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n`
+    + ` <Relationship Target="/3D/3dmodel.model" Id="rel-1" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>\n`
+    + `</Relationships>\n`);
+  return z.blob();
+}
+// </export>
+
 const STORE = 'duality-streifenrechner-v1';
-let state = {stripM:5, qty:{}, override:{}, edit:false, tab:'list', plan:null, lang:'de', theme:'light'};
+let state = {stripM:5, qty:{}, override:{}, edit:false, tab:'list', plan:null, lang:'de', theme:'light',
+  exp:{printer:'p1s', pattern:'hex', source:'qty', includeTrack:true, rotate:'auto', counts:{}}};
 
 function load(){
   let hadTheme = false;
@@ -650,7 +1748,8 @@ function load(){
         state.stripM = typeof s.stripM==='number' ? s.stripM : 5;
         state.qty = s.qty && typeof s.qty==='object' ? s.qty : {};
         state.override = s.override && typeof s.override==='object' ? s.override : {};
-        state.tab = s.tab === 'plan' ? 'plan' : 'list';
+        state.tab = (s.tab === 'plan' || s.tab === 'export') ? s.tab : 'list';
+        state.exp = sanitizeExp(s.exp);
         state.lang = (s.lang === 'en' || s.lang === 'de') ? s.lang : 'de';
         if(s.theme === 'dark' || s.theme === 'light'){ state.theme = s.theme; hadTheme = true; }
         state.plan = sanitizePlan(s.plan);
@@ -798,9 +1897,10 @@ document.getElementById('stripM').addEventListener('input', e=>{
 
 document.getElementById('btnReset').addEventListener('click', ()=>{
   if(!confirm(t('confirmReset'))) return;
-  state={stripM:5,qty:{},override:{},edit:state.edit,tab:'list',plan:sanitizePlan(null),lang:state.lang};
+  state={stripM:5,qty:{},override:{},edit:state.edit,tab:'list',plan:sanitizePlan(null),lang:state.lang,
+    theme:state.theme, exp:sanitizeExp(null)};
   document.getElementById('stripM').value=5;
-  sel=null; undoStack=[];
+  sel=null; undoStack=[]; setPlanBild(null);
   syncPlanControls(); setTab('list');
   renderAll(); toast(t('toastReset'));
 });
@@ -814,6 +1914,7 @@ document.getElementById('btnExport').addEventListener('click', ()=>{
     teile: Object.keys(state.qty).filter(id=>state.qty[id]>0).map(id=>({id, anzahl:state.qty[id], mm: mmOf(byId[id]) })),
     eigeneMass: state.override,
     plan: state.plan,
+    planBild: state.plan.items.length ? planImageDataUrl() : null,
     erzeugt: new Date().toISOString()
   };
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
@@ -833,13 +1934,16 @@ document.getElementById('fileInput').addEventListener('change', e=>{
       const d=JSON.parse(r.result);
       if(d.format!=='duality-streifenrechner') throw new Error(t('errFormat'));
       state.qty={};
-      (d.teile||[]).forEach(t=>{ if(byId[t.id] && t.anzahl>0) state.qty[t.id]=Math.round(t.anzahl); });
+      (d.teile||[]).forEach(pt=>{ if(byId[pt.id] && pt.anzahl>0) state.qty[pt.id]=Math.round(pt.anzahl); });
       state.override = d.eigeneMass && typeof d.eigeneMass==='object' ? d.eigeneMass : {};
       state.stripM = typeof d.stripM==='number' ? d.stripM : 5;
       state.plan = d.plan ? sanitizePlan(d.plan) : sanitizePlan(null);
+      setPlanBild(d.planBild);
       document.getElementById('stripM').value=state.stripM;
       syncPlanControls();
-      renderAll(); toast(t('toastLoaded'));
+      renderAll(); renderPlanPanels(); drawPlan();
+      setTab(d.tab === 'plan' || d.tab === 'export' ? d.tab : 'list');
+      toast(t('toastLoaded'));
     }catch(err){ toast(t('toastErr', err.message)); }
   };
   r.readAsText(f);
@@ -1151,21 +2255,44 @@ function cloneSel(){
   save(); renderPlanPanels(); drawPlan();
 }
 
-function exportPlanImage(){
-  if(!state.plan.items.length){ toast(t('toastNoParts')); return; }
+// PNG des Wandplans als Data-URL – funktioniert auch aus dem Listentab, indem die
+// (sonst versteckte) Plan-Canvas kurz für Layout/Messung eingeblendet wird.
+function planImageDataUrl(){
+  if(!state.plan.items.length){ toast(t('toastNoParts')); return null; }
+  const planView = document.getElementById('viewPlan');
+  const wasHidden = planView.hidden;
+  if(wasHidden){ planView.hidden = false; sizeCanvas(); }
   const old = {k:view.k, panX:view.panX, panY:view.panY, fitted:view.fitted};
-  fitView(); drawPlan();
-  const W = state.plan.wallW, H = state.plan.wallH;
-  const x0 = X(0), y0 = Y(H), w = W*view.k, h = H*view.k;
-  const out = document.createElement('canvas');
-  out.width = Math.max(1, Math.round(w*dpr)); out.height = Math.max(1, Math.round(h*dpr));
-  const g = out.getContext('2d');
-  g.fillStyle = '#fff'; g.fillRect(0, 0, out.width, out.height);
-  g.drawImage(cv, x0*dpr, y0*dpr, w*dpr, h*dpr, 0, 0, out.width, out.height);
-  view.k = old.k; view.panX = old.panX; view.panY = old.panY; view.fitted = old.fitted; drawPlan();
+  try{
+    fitView(); drawPlan();
+    const W = state.plan.wallW, H = state.plan.wallH;
+    const x0 = X(0), y0 = Y(H), w = W*view.k, h = H*view.k;
+    const out = document.createElement('canvas');
+    out.width = Math.max(1, Math.round(w*dpr)); out.height = Math.max(1, Math.round(h*dpr));
+    const g = out.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, out.width, out.height);
+    g.drawImage(cv, x0*dpr, y0*dpr, w*dpr, h*dpr, 0, 0, out.width, out.height);
+    return out.toDataURL('image/png');
+  }finally{
+    view.k = old.k; view.panX = old.panX; view.panY = old.panY; view.fitted = old.fitted;
+    drawPlan();
+    if(wasHidden) planView.hidden = true;
+  }
+}
+let planBildUrl = null;
+function setPlanBild(url){
+  planBildUrl = (typeof url==='string' && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(url)) ? url : null;
+  const box = document.getElementById('planBildBox');
+  const img = document.getElementById('planBildImg');
+  if(planBildUrl){ img.src = planBildUrl; box.hidden = false; }
+  else{ img.removeAttribute('src'); box.hidden = true; }
+}
+function exportPlanImage(){
+  const url = planImageDataUrl();
+  if(!url) return;
   const a = document.createElement('a');
-  a.download = 'wandplaner-'+W+'x'+H+'mm.png';
-  a.href = out.toDataURL('image/png'); a.click();
+  a.download = 'wandplaner-'+state.plan.wallW+'x'+state.plan.wallH+'mm.png';
+  a.href = url; a.click();
 }
 
 function renderPal(){
@@ -1233,7 +2360,7 @@ function applyLang(){
   }
   document.getElementById('langSel').value = state.lang;
   renderFilterOptions();
-  renderChangelog(); renderAll(); renderPal(); renderLegend(); renderPlanPanels(); drawPlan();
+  renderChangelog(); renderAll(); renderPal(); renderLegend(); renderPlanPanels(); drawPlan(); renderExport();
 }
 document.getElementById('langSel').addEventListener('change', e=>{
   state.lang = e.target.value === 'en' ? 'en' : 'de';
@@ -1249,16 +2376,19 @@ function syncPlanControls(){
   document.getElementById('gridOn').checked = state.plan.grid;
 }
 function setTab(t){
-  state.tab = t==='plan' ? 'plan' : 'list';
+  state.tab = (t==='plan' || t==='export') ? t : 'list';
   document.getElementById('viewList').hidden = state.tab!=='list';
   document.getElementById('viewPlan').hidden = state.tab!=='plan';
+  document.getElementById('viewExport').hidden = state.tab!=='export';
   document.getElementById('tabList').classList.toggle('active', state.tab==='list');
   document.getElementById('tabPlan').classList.toggle('active', state.tab==='plan');
+  document.getElementById('tabExport').classList.toggle('active', state.tab==='export');
   if(state.tab==='plan'){
     sizeCanvas();
     if(!view.fitted) fitView();
     renderPal(); renderLegend(); renderPlanPanels(); drawPlan();
   }
+  if(state.tab==='export') renderExport();
   save();
 }
 
@@ -1278,10 +2408,15 @@ document.getElementById('gridOn').addEventListener('change', e=>{ state.plan.gri
 document.getElementById('btnFit').addEventListener('click', ()=>{ fitView(); drawPlan(); });
 document.getElementById('btnUndo').addEventListener('click', doUndo);
 document.getElementById('btnPlanImg').addEventListener('click', exportPlanImage);
+document.getElementById('btnPlanBildSave').addEventListener('click', ()=>{
+  if(!planBildUrl) return;
+  const a=document.createElement('a');
+  a.href=planBildUrl; a.download='wandplaner-aus-json.png'; a.click();
+});
 document.getElementById('btnPlanClear').addEventListener('click', ()=>{
   if(!state.plan.items.length) return;
   if(!confirm(t('confirmClear'))) return;
-  pushUndo(); state.plan.items = []; sel = null; save(); renderPlanPanels(); drawPlan();
+  pushUndo(); state.plan.items = []; sel = null; setPlanBild(null); save(); renderPlanPanels(); drawPlan();
 });
 document.getElementById('btnAdopt').addEventListener('click', ()=>{
   if(!state.plan.items.length){ toast(t('toastNoParts')); return; }
@@ -1393,6 +2528,369 @@ document.addEventListener('keydown', e=>{
 });
 
 window.addEventListener('resize', ()=>{ if(state.tab==='plan'){ sizeCanvas(); drawPlan(); } });
+
+/* ---- 3MF-Export: UI, Datei-Import und Download ---- */
+let stlFiles = [];      // [{path, name, file}]
+let expRows = [];       // [{path, name, qty, kind, mesh?, dims}]
+let expInfo = {missing:[], noSkin:[]};
+let meshCache = new Map();
+
+function sanitizeExp(s){
+  const d = {printer:'p1s', pattern:'hex', source:'qty', includeTrack:true, rotate:'auto', counts:{}};
+  if(s && typeof s === 'object'){
+    if(PRINTERS[s.printer]) d.printer = s.printer;
+    if(PATTERN_OPTS.some(p=>p.id===s.pattern)) d.pattern = s.pattern;
+    if(s.source==='plan' || s.source==='qty') d.source = s.source;
+    d.includeTrack = s.includeTrack !== false;
+    d.rotate = s.rotate === 'hint' ? 'hint' : 'auto';
+    if(s.counts && typeof s.counts === 'object') for(const [k,v] of Object.entries(s.counts)){
+      const n = Number(v);
+      if(Number.isInteger(n) && n>0 && n<100000) d.counts[k] = n;
+    }
+  }
+  return d;
+}
+
+function indexStlFiles(){
+  const map = new Map();
+  for(const f of stlFiles){
+    const key = f.name.toLowerCase();
+    if(!map.has(key) || f.path.length < map.get(key).length) map.set(key, f.path);
+  }
+  return map;
+}
+function findStl(index, base){ return index.get(String(base).toLowerCase()) || null; }
+
+function setStlFiles(list){
+  stlFiles = list;
+  meshCache = new Map();
+  expRows = [];
+  expInfo = {missing:[], noSkin:[]};
+  const ids = ['patternSel','printerSel','exportSource','includeTrack','rotateSel'];
+  ids.forEach(id=>{ const el=document.getElementById(id); if(el) el.value = ({patternSel:state.exp.pattern, printerSel:state.exp.printer,
+    exportSource:state.exp.source, includeTrack:state.exp.includeTrack?'1':'0', rotateSel:state.exp.rotate})[id]; });
+  document.getElementById('expStatus').textContent = t('expLoaded', list.length);
+  renderExport();
+}
+
+async function addFilesFromInput(input){
+  const list = [...(input.files || [])].map(f=>({
+    name:f.name,
+    path:(f.webkitRelativePath || f.name).split('/').slice(f.webkitRelativePath ? 1 : 0).join('/'),
+    file:f
+  }));
+  setStlFiles(list.filter(f=>/\.stl$/i.test(f.name)));
+}
+/* Bevorzugter Ordner-Picker (secure context), Fallback: <input webkitdirectory>.
+   Ein Abbruch des Pickers führt bewusst nicht zum Fallback. */
+async function pickStlFolder(){
+  if(typeof window.showDirectoryPicker === 'function'){
+    try{
+      const root = await window.showDirectoryPicker({id:'duality-stl', mode:'read'});
+      const out = [];
+      const walk = async (dir, prefix)=>{
+        for await (const [name, entry] of dir.entries()){
+          if(entry.kind === 'directory') await walk(entry, prefix + name + '/');
+          else if(entry.kind === 'file' && /\.stl$/i.test(name))
+            out.push({name, path:prefix + name, file:await entry.getFile()});
+        }
+      };
+      await walk(root, '');
+      setStlFiles(out);
+      return;
+    }catch(e){
+      if(e && e.name === 'AbortError') return;
+      // z. B. Berechtigung verweigert -> Fallback
+    }
+  }
+  if(!('webkitdirectory' in document.createElement('input')))
+    document.getElementById('expStatus').textContent = t('expNoDirectory');
+  document.getElementById('stlInput').click();
+}
+
+// Rekursion über moderne FileSystemHandles und über die älteren webkit-Entries.
+// Beides ist nötig: Brave/Chrome liefern je nach Drop-Quelle mal das eine, mal das andere.
+async function collectFromHandle(handle, prefix, out){
+  if(!handle) return;
+  try{
+    if(handle.kind === 'file' || typeof handle.getFile === 'function'){
+      const file = await handle.getFile();
+      const name = handle.name || file.name;
+      out.push({name, path:prefix + name, file});
+      return;
+    }
+    if(handle.kind !== 'directory' && typeof handle.values !== 'function') return;
+    const sub = prefix + (handle.name ? handle.name + '/' : '');
+    const it = typeof handle.values === 'function'
+      ? handle.values()
+      : (async function*(){ for await(const [,h] of handle.entries()) yield h; })();
+    for await(const child of it) await collectFromHandle(child, sub, out);
+  }catch(e){}
+}
+async function collectFromEntry(entry, prefix, out){
+  if(!entry) return;
+  const name = entry.name || '';
+  if(entry.isFile){
+    try{
+      const file = await new Promise((res,rej)=>entry.file(res,rej));
+      out.push({name:name || file.name, path:prefix + (name || file.name), file});
+    }catch(e){}
+    return;
+  }
+  if(!entry.isDirectory || typeof entry.createReader !== 'function') return;
+  const sub = prefix + name + '/';
+  try{
+    const reader = entry.createReader();
+    let batch = [];
+    do{
+      batch = await new Promise((res,rej)=>reader.readEntries(res,rej));
+      for(const child of batch) await collectFromEntry(child, sub, out);
+    }while(batch && batch.length);
+  }catch(e){}
+}
+async function addFilesFromDrop(e){
+  const dt = e.dataTransfer;
+  const items = [...((dt && dt.items) || [])];
+  const out = [];
+  let sawDir = false;
+  for(const it of items){
+    if(it.kind && it.kind !== 'file') continue;
+    let done = false;
+    if(typeof it.getAsFileSystemHandle === 'function'){
+      try{
+        const handle = await it.getAsFileSystemHandle();
+        if(handle){
+          if(handle.kind === 'directory') sawDir = true;
+          await collectFromHandle(handle, '', out);
+          done = true;
+        }
+      }catch(err){}
+    }
+    if(!done && typeof it.webkitGetAsEntry === 'function'){
+      try{
+        const entry = it.webkitGetAsEntry();
+        if(entry){
+          if(entry.isDirectory) sawDir = true;
+          await collectFromEntry(entry, '', out);
+          done = true;
+        }
+      }catch(err){}
+    }
+  }
+  if(!out.length){
+    // Letzter Fallback: z. B. Nemo liefert nur dataTransfer.files (bei Ordnern
+    // ein Eintrag ohne Endung und mit Größe 0 – daraus kommen keine STLs).
+    for(const f of ((dt && dt.files) || [])){
+      if(f.size === 0 && !/\.stl$/i.test(f.name)) sawDir = true;
+      out.push({name:f.name, path:f.name, file:f});
+    }
+  }
+  const stls = out.filter(f=>/\.stl$/i.test(f.name));
+  if(!stls.length){
+    document.getElementById('expStatus').textContent = t(sawDir ? 'expDropEmpty' : 'expNoFiles');
+    return;
+  }
+  setStlFiles(stls);
+}
+
+function qtyForExport(){
+  if(state.exp.source === 'plan'){
+    const q = {};
+    for(const item of (state.plan && state.plan.items) || []) q[item.part] = (q[item.part] || 0) + 1;
+    return q;
+  }
+  return state.qty || {};
+}
+
+async function deriveExport(){
+  const status = document.getElementById('expStatus');
+  if(!stlFiles.length){ expRows=[]; expInfo={missing:[], noSkin:[]}; status.textContent=t('expNoFiles'); renderExport(); return; }
+  const q = qtyForExport();
+  if(!Object.values(q).some(n=>Number(n)>0)){
+    expRows=[]; expInfo={missing:[], noSkin:[]}; status.textContent=t('expNoParts'); renderExport(); return;
+  }
+  const index = indexStlFiles();
+  const byPath = new Map(stlFiles.map(f=>[f.path, f]));
+  const derived = derivePieces(PARTS, q, state.exp.pattern, base=>findStl(index,base), state.exp.includeTrack);
+  expInfo = {missing:derived.missing, noSkin:derived.noSkin};
+  expRows = derived.pieces.map(p=>{
+    const n = state.exp.counts[p.name];
+    const f = byPath.get(p.path);
+    return {...p, file:f ? f.file : null, qty:(typeof n === 'number' ? n : p.qty)};
+  });
+  for(const row of expRows){
+    if(!meshCache.has(row.path)){
+      const buf = await row.file.arrayBuffer();
+      meshCache.set(row.path, readStl(buf, row.name));
+    }
+  }
+  status.textContent = t('expDerived', expRows.length, Object.values(q).filter(n=>Number(n)>0).length)
+    + (derived.missing.length ? ' ' + t('expMissing', derived.missing.length, derived.missing.join(', ')) : '');
+  renderExport();
+}
+
+function dimsOf(row){
+  const m = meshCache.get(row.path);
+  return m ? `${m.w.toFixed(1)} × ${m.h.toFixed(1)} × ${m.d.toFixed(1)}` : '—';
+}
+function nameList(arr, max){
+  const u = [...new Set(arr)].join(', '), n = max || 220;
+  return u.length > n ? u.slice(0,n) + ' …' : u;
+}
+function bedSize(){ return (PRINTERS[state.exp.printer] || PRINTERS.p1s).bed; }
+function rowOrient(r){
+  const src = meshCache.get(r.path);
+  return src ? orientForBed(src, bedSize(), state.exp.rotate !== 'hint') : null;
+}
+function effDim(m){
+  if(!m) return null;
+  return orientForBed(m, bedSize(), state.exp.rotate !== 'hint').mesh;
+}
+function plateStats(){
+  const bed = bedSize(), auto = state.exp.rotate !== 'hint';
+  const total = expRows.reduce((a,r)=>a+(Number(r.qty)||0), 0);
+  const rows = expRows.map(r=>({r, src:meshCache.get(r.path), o:rowOrient(r)})).filter(x=>x.o);
+  const tall = rows.filter(x=>x.src.d>60).map(x=>x.r);
+  const rotated = rows.filter(x=>x.o.rotated).map(x=>x.r);
+  const upright = rows.filter(x=>x.o.upright).map(x=>x.r);
+  const tooBig = rows.filter(x=>x.o.mesh.w>bed || x.o.mesh.h>bed).map(x=>x.r);
+  const tooHigh = rows.filter(x=>x.o.mesh.d>bed && x.o.mesh.w<=bed && x.o.mesh.h<=bed).map(x=>x.r);
+  return {total, tall, rotated, upright, tooBig, tooHigh, auto};
+}
+function renderExport(){
+  const pSel = document.getElementById('patternSel'), rSel = document.getElementById('printerSel');
+  const opts = PATTERN_OPTS.map(p=>`<option value="${p.id}">${p[state.lang==='en'?'en':'de']}</option>`).join('');
+  if(pSel.innerHTML !== opts) pSel.innerHTML = opts;
+  pSel.value = state.exp.pattern;
+  const printers = Object.entries(PRINTERS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');
+  if(rSel.innerHTML !== printers) rSel.innerHTML = printers;
+  rSel.value = state.exp.printer;
+  document.getElementById('exportSource').value = state.exp.source;
+  document.getElementById('includeTrack').value = state.exp.includeTrack ? '1' : '0';
+  document.getElementById('rotateSel').value = state.exp.rotate;
+
+  const body = document.getElementById('expBody');
+  body.innerHTML = expRows.map((r,i)=>{
+    const m = effDim(meshCache.get(r.path));
+    const cls = m && (m.w>256 || m.h>256) ? ' class="big"' : '';
+    const grp = r.kind === 'skin' ? 'Skin' : 'Track';
+    return `<tr${cls}><td class="name" title="${r.path}">${grp} · ${r.name}</td>`
+      + `<td class="num"><input type="number" min="1" max="9999" value="${r.qty}" data-row="${i}" aria-label="${r.name}"></td>`
+      + `<td class="num">${m ? `${m.w.toFixed(1)} × ${m.h.toFixed(1)} × ${m.d.toFixed(1)}` : '—'}</td>`
+      + `<td>${m ? ((m.w>256||m.h>256) ? t('expOversize',1,r.name) : 'OK') : '—'}</td></tr>`;
+  }).join('');
+  document.getElementById('expTable').hidden = !expRows.length;
+
+  const s = plateStats();
+  const bits = [t('expPieces', s.total)];
+  if(s.auto){
+    if(s.rotated.length) bits.push(t('expRotated', s.rotated.length));
+    if(s.upright.length) bits.push(t('expUpright', s.upright.length, nameList(s.upright.map(r=>r.name))));
+  } else if(s.tall.length){
+    bits.push(t('expRotateHint', s.tall.length, nameList(s.tall.map(r=>r.name))));
+  }
+  if(s.tooBig.length) bits.push(t('expOversize', s.tooBig.length, nameList(s.tooBig.map(r=>r.name))));
+  if(s.tooHigh.length) bits.push(t('expTooHigh', s.tooHigh.length, nameList(s.tooHigh.map(r=>r.name))));
+  if(expInfo.noSkin.length) bits.push(t('expNoSkin', expInfo.noSkin.length, nameList(expInfo.noSkin)));
+  document.getElementById('expStat').innerHTML = bits.map(b=>`<span>${b}</span>`).join('');
+}
+
+function setProgress(frac){
+  document.getElementById('expBar').style.width = Math.round(frac*100) + '%';
+}
+
+async function doExport(){
+  if(!expRows.length){ toast(t('expNoParts')); return; }
+  const printer = PRINTERS[state.exp.printer];
+  if(!printer || !printer.profile || Object.keys(JSON.parse(printer.profile)).length < 50){
+    toast(t('expNoProfile', printer ? printer.label : state.exp.printer)); return;
+  }
+  const btn = document.getElementById('btn3mf');
+  btn.disabled = true;
+  try{
+    const auto = state.exp.rotate !== 'hint';
+    const groups = {track:[], skin:[]};
+    const uprightNames = [];
+    let itemCount = 0;
+    for(const r of expRows){
+      const n = Number(r.qty);
+      if(!(n>0)) continue;
+      const src = meshCache.get(r.path);
+      if(!src) continue;
+      const o = orientForBed(src, printer.bed, auto);
+      if(o.upright && !uprightNames.includes(r.name)) uprightNames.push(r.name);
+      const kind = r.kind === 'skin' ? 'skin' : 'track';
+      for(let i=0;i<n;i++){
+        groups[kind].push({name:r.name, w:o.mesh.w, h:o.mesh.h, d:o.mesh.d, mesh:o.mesh, kind});
+        itemCount++;
+      }
+    }
+    // Tracks und Skins auf getrennte Platten, innerhalb jeder Gruppe dicht gepackt.
+    const plates = [];
+    for(const [kind, label] of [['track','Track'],['skin','Skin']]){
+      if(!groups[kind].length) continue;
+      for(const plate of packPlates(groups[kind], printer.bed, EXPORT_GAP)){
+        plate.label = label;
+        plates.push(plate);
+      }
+    }
+    setProgress(0.05);
+    const blob = await build3mf(plates, printer, (frac,pi,count,name)=>{
+      setProgress(0.05 + frac*0.9);
+      document.getElementById('expStatus').textContent = t('expBuilding', pi, count, name);
+    });
+    const fileName = `duality-${state.exp.printer}-${state.exp.pattern}.3mf`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fileName;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 10000);
+    setProgress(1);
+    document.getElementById('expStatus').textContent = t('expDone', fileName)
+      + ' · ' + t('expPlates', plates.length, itemCount)
+      + (uprightNames.length ? ' · ' + t('expUpright', uprightNames.length, nameList(uprightNames)) : '');
+  }catch(err){
+    toast(t('expErr', err && err.message ? err.message : String(err)));
+    document.getElementById('expStatus').textContent = t('expErr', err && err.message ? err.message : String(err));
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('tabExport').addEventListener('click', ()=>setTab('export'));
+document.getElementById('stlDrop').addEventListener('click', pickStlFolder);
+document.getElementById('btnStlFiles').addEventListener('click', ()=>document.getElementById('stlFilesInput').click());
+document.getElementById('stlInput').addEventListener('change', e=>{ addFilesFromInput(e.target); e.target.value=''; });
+document.getElementById('stlFilesInput').addEventListener('change', e=>{ addFilesFromInput(e.target); e.target.value=''; });
+const dropEl = document.getElementById('stlDrop');
+['dragenter','dragover'].forEach(ev=>dropEl.addEventListener(ev, e=>{ e.preventDefault(); dropEl.classList.add('over'); }));
+['dragleave','drop'].forEach(ev=>dropEl.addEventListener(ev, e=>{ e.preventDefault(); dropEl.classList.remove('over'); }));
+dropEl.addEventListener('drop', e=>{ e.preventDefault(); addFilesFromDrop(e); });
+document.getElementById('patternSel').addEventListener('change', e=>{
+  state.exp.pattern = e.target.value; state.exp.counts = {}; save(); deriveExport();
+});
+document.getElementById('printerSel').addEventListener('change', e=>{ state.exp.printer = e.target.value; save(); renderExport(); });
+document.getElementById('exportSource').addEventListener('change', e=>{
+  state.exp.source = e.target.value; state.exp.counts = {}; save(); deriveExport();
+});
+document.getElementById('includeTrack').addEventListener('change', e=>{
+  state.exp.includeTrack = e.target.value === '1'; state.exp.counts = {}; save(); deriveExport();
+});
+document.getElementById('rotateSel').addEventListener('change', e=>{
+  state.exp.rotate = e.target.value === 'hint' ? 'hint' : 'auto'; save(); renderExport();
+});
+document.getElementById('btnDerive').addEventListener('click', deriveExport);
+document.getElementById('btn3mf').addEventListener('click', doExport);
+document.getElementById('expBody').addEventListener('change', e=>{
+  const input = e.target.closest('input[data-row]');
+  if(!input) return;
+  const i = Number(input.dataset.row), row = expRows[i];
+  if(!row) return;
+  const n = Number(input.value);
+  if(Number.isInteger(n) && n>0 && n<=9999){ state.exp.counts[row.name] = n; row.qty = n; }
+  else input.value = row.qty;
+  save(); renderExport();
+});
 
 load();
 document.getElementById('langSel').value = state.lang;

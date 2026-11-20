@@ -19,6 +19,11 @@ export/import for backup.
 - **Bill of materials** – turn the wall plan into the quantity table with one
   click.
 - **JSON export/import** – save or restore the whole configuration.
+- **3MF export** – generate a downloadable Bambu Studio project (`.3mf`) from
+  your quantities or wall plan: choose a skin pattern and a printer (P1S or
+  A1); tracks and skins go on separate, densely packed build plates and parts
+  can be laid flat automatically. All model files stay in your browser –
+  nothing is uploaded.
 - **Bilingual UI** – switch the interface between German and English at any
   time.
 
@@ -83,6 +88,11 @@ Sichern/Wiederherstellen per JSON-Export/-Import.
 - **Stückliste** – den Wandplan mit einem Klick in die Mengentabelle
   übernehmen.
 - **JSON-Export/-Import** – die gesamte Konfiguration sichern/wiederherstellen.
+- **3MF-Export** – aus Stückliste oder Wandplan ein herunterladbares
+  Bambu-Studio-Projekt (`.3mf`) erzeugen: Muster und Drucker (P1S oder A1)
+  wählen; Tracks und Skins liegen auf getrennten, dicht gepackten Platten,
+  Teile können automatisch flach gelegt werden. Alle Modelldateien bleiben im
+  Browser – es wird nichts hochgeladen.
 - **Zweisprachige Oberfläche** – die Bedienoberfläche jederzeit zwischen
   Deutsch und English umschalten.
 
