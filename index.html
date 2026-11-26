@@ -666,154 +666,39 @@ function renderFitNote(){
 // Versionierung (SemVer + Kanal-Suffix); oberster Eintrag == APP_VERSION, prüft check.js.
 const APP_VERSION = '0.3.9-alpha';
 const CHANGELOG = [
-  {version:'0.3.9-alpha', date:'2026-11-26', items:[
-    'Neu: Tab „Anleitung" mit dem Inhalt der guide.pdf (Drucken, LED-Strips, 45°/90°-Tracks, Skins, Base Tracks, Montage, Installation, Warnung)',
-    'Zubehör-Beschreibungen: jede Zubehör-Zeile zeigt jetzt, wofür das Teil gebraucht wird (Splice Block, End/Base Mount, Light Coupling)',
-    'Modal-Ansicht: normale Track-Teile in der Bandansicht, Zubehör mit Band- und Isometrie-Modus'
+  {version:'0.3', date:'2026-11-26', items:[
+    'Streifenrechner: Alle 56 strip-führenden Teile mit Pfadlänge, Auswahl, Summe/Rollen-Rest, JSON-Export/-Import.',
+    'Wandplaner: Teile per Drag & Drop auf eine Wand, maßstäbliche Bänder, Magnet-Snapping, Drehen/Spiegeln, PNG-Export, „Plan als Stückliste".',
+    '3MF-Export: Lokale STLs → downloadbare 3MF für Bambu Studio (P1S, A1) und Snapmaker Orca (U1) mit automatischer Plattenaufteilung.',
+    'Zubehör: Splice-Blocks (automatisch Tracks − 1), End Mounts, Base Mounts, Light Couplings mit Stückzahlen.',
+    'Anleitung-Tab: Inhalt der mitgelieferten Anleitung (Drucken, LED-Strips, 45°/90°-Tracks, Skins, Base Tracks, Montage, Installation).',
+    'UI: Zweisprachig (Deutsch/English), Dark Mode, Hover-Vorschau, einklappbare Kategorien, Druckerwahl mit Druckbarkeits-Filter.',
+    'Sicherheit: DOM-XSS in Datei-/Ordnernamen im Export-Tab behoben, Content-Security-Policy ergänzt.'
   ],
   itemsEn:[
-    'New: “Guide” tab with the content of guide.pdf (printing, LED strips, 45°/90° tracks, skins, base tracks, assembly, installation, warning)',
-    'Accessory descriptions: each accessory row now shows what the part is used for (splice block, end/base mount, light coupling)',
-    'Modal view: normal track parts in the band view, accessories with band and isometric modes'
+    'Strip calculator: all 56 strip-carrying parts with path length, selection, sum/roll remainder, JSON export/import.',
+    'Wall planner: drag & drop parts onto a wall, to-scale strips, magnet snapping, rotate/flip, PNG export, “adopt plan as parts list”.',
+    '3MF export: local STLs → downloadable 3MF for Bambu Studio (P1S, A1) and Snapmaker Orca (U1) with automatic plate packing.',
+    'Accessories: splice blocks (automatically tracks − 1), end mounts, base mounts, light couplings with quantities.',
+    'Guide tab: content of the supplied guide (printing, LED strips, 45°/90° tracks, skins, base tracks, assembly, installation).',
+    'UI: bilingual (German/English), dark mode, hover preview, collapsible categories, printer selection with printability filter.',
+    'Security: fixed DOM-XSS via file/folder names in the export tab, added Content-Security-Policy.'
   ]},
-  {version:'0.3.8-alpha', date:'2026-11-26', items:[
-    'Neu: Zubehör-Auswahl in der Streifenliste – Splice-Blocks (automatisch Anzahl Tracks − 1, per Checkbox abwählbar), End Mounts, Base Mounts und Light Couplings mit manueller Stückzahl',
-    'Zubehör erscheint in der Auswahl & Auswertung und im JSON-Export/Import (Feld zubehoer)',
-    'Splice-Auto kann per Checkbox deaktiviert werden; manuelle Stückzahlen setzen den Auto-Modus für den Splice-Block zurück'
+  {version:'0.2', date:'2026-10-09', items:[
+    'Wandplaner als zweiter Tab (Drag & Drop, Magnet-Snapping, Drehen/Spiegeln, Zoom/Pan).',
+    'Filter nach Serie (Original/Evolution) und Form (gerade/gebogen), gemeinsam für Liste und Palette.',
+    'Dark Mode mit Umschalter, zweisprachige Oberfläche (DE/EN).'
   ],
   itemsEn:[
-    'New: accessory selection in the parts list – splice blocks (automatically tracks − 1, toggle via checkbox), end mounts, base mounts and light couplings with manual quantities',
-    'Accessories appear in the selection & result and in JSON export/import (zubehoer field)',
-    'Splice auto can be toggled off via checkbox; manual quantities reset auto mode for the splice block'
+    'Wall planner as second tab (drag & drop, magnet snapping, rotate/flip, zoom/pan).',
+    'Filters by series (Original/Evolution) and shape (straight/curved), shared by list and palette.',
+    'Dark mode with toggle, bilingual UI (DE/EN).'
   ]},
-  {version:'0.3.7-alpha', date:'2026-11-25', items:[
-    'Sicherheit: DOM-XSS über Datei-/Ordnernamen im Export-Tab behoben – Pfad und Name werden in renderExport() jetzt HTML-escaped (htmlEsc), ohne den Import/Pfad-Matching zu ändern',
-    'Sicherheit: Content-Security-Policy als meta-Tag ergänzt (connect-src none, object-src none, base-uri none, form-action none, frame-ancestors none)',
-    'Hinweis: Weitere Härtungshinweise aus dem Sicherheitsbericht (F-03 JSON-Import hasOwnProperty/Override-Whitelist, F-04 Größenbegrenzungen, F-05 noreferrer) sind dokumentiert und können bei passender Gelegenheit mit umgesetzt werden'
+  {version:'0.1', date:'2026-10-08', items:[
+    'Erste Version: Streifenrechner aller strip-führenden Teile mit Pfadlänge, Auswahl, Summe/Rollen-Rest, JSON-Export/-Import.'
   ],
   itemsEn:[
-    'Security: fixed DOM-XSS via file/folder names in the export tab – path and name are now HTML-escaped in renderExport() (htmlEsc) without changing import/path matching',
-    'Security: added a Content-Security-Policy meta tag (connect-src none, object-src none, base-uri none, form-action none, frame-ancestors none)',
-    'Note: further hardening items from the security report (F-03 JSON import hasOwnProperty/override whitelist, F-04 size limits, F-05 noreferrer) are documented and can be picked up later'
-  ]},
-  {version:'0.3.6-alpha', date:'2026-11-23', items:[
-    'Vorschau in der Streifenliste: Beim Überfahren eines Teils erscheint das 35,8-mm-Band als kleine schematische Grafik (Kategoriefarbe, gestrichelte Mittellinie, Maß im Untertitel)',
-    'Die Vorschau wird live aus der Wandplaner-Geometrie gezeichnet – keine Bilddateien, kein zusätzliches Laden; auf Touch-Geräten per Tippen auf den Namen',
-    'Die Vorschau verschwindet beim Verlassen des Namens, beim Scrollen, bei Filter-/Sprachwechsel und beim Tab-Wechsel'
-  ],
-  itemsEn:[
-    'Preview in the parts list: hovering a part shows its 35.8 mm band as a small schematic graphic (category colour, dashed centre line, dimension in the caption)',
-    'The preview is drawn live from the wall planner geometry – no image files, nothing extra to load; on touch devices tap the name',
-    'The preview disappears when leaving the name, on scroll, on filter/language change and on tab change'
-  ]},
-  {version:'0.3.5-alpha', date:'2026-11-23', items:[
-    'Snapmaker U1 jetzt mit Export-Profil: Der 3MF-Download ist für den U1 nicht mehr gesperrt und nutzt 1:1 das Profil aus einem in Snapmaker Orca 2.4.2 erzeugten Projekt (270 × 270 × 270 mm, 0,4-mm-Düse)',
-    'Der U1-Export bleibt neutral: 0,20-mm-Standard, auto_brim, Textured-PEI-Platte, Stützstrukturen aus',
-    'Die 3MF wird je Drucker richtig gekennzeichnet: beim U1 als Snapmaker_Orca-2.4.2 (ohne BambuStudio-Einträge), beim P1S und A1 unverändert',
-    'Die Druckerauswahl zeigt beim U1 keinen Hinweis „kein Profil" mehr; P1S und A1 bleiben unverändert',
-    'Testdatei test-u1-0.3.5-alpha.3mf mit der Hex-Auswahl (14 Track- + 7 Skin-Teile) auf 5 Platten (3 Track + 2 Skin)'
-  ],
-  itemsEn:[
-    'Snapmaker U1 now has an export profile: the 3MF download is no longer blocked for the U1 and uses the profile from a project created in Snapmaker Orca 2.4.2 (270 × 270 × 270 mm, 0.4 mm nozzle) unchanged',
-    'The U1 export stays neutral: 0.20 mm standard, auto brim, textured PEI plate, supports off',
-    'The 3MF is marked correctly per printer: Snapmaker_Orca-2.4.2 for the U1 (no BambuStudio entries), unchanged for the P1S and A1',
-    'The printer selector no longer shows “no profile” for the U1; the P1S and A1 are unchanged',
-    'Test file test-u1-0.3.5-alpha.3mf with the hex selection (14 track + 7 skin parts) on 5 plates (3 track + 2 skin)'
-  ]},
-  {version:'0.3.4-alpha', date:'2026-11-21', items:[
-    'Neuer Name: Die App heißt jetzt „Lumen Track" (vorher „Duality LED Track – Streifenrechner") – das System selbst bleibt das Duality LED Track System von Andy Huot',
-    'Ausrichtung: Jedes Teil wird auf seine größte Auflagefläche gelegt – Geraden, Tangenten und Skins auf die 35,8-mm-Fläche, Down-/Up-Kurven auf die X-Fläche (statt pauschal um die Y-Achse)',
-    'Neuer verschachtelter Plattenpacker (2-mm-Grundflächenraster, vier Drehlagen): L-förmige Kurven und Tangenten verschachteln sich – die Beispiel-Auswahl braucht 6 statt 8 Platten',
-    'Neutrale 0,20-Standard-Werte beim Export: kein 5-mm-Brim mehr, Stützstrukturen aus, Textured-PEI-Platte, A1-Version passend zum Profil (02.00.03.54)',
-    'Hinweis bei nicht gedrehten Teilen nennt keine feste Drehachse mehr, sondern „größte Fläche nach unten"',
-    'Druckerauswahl in allen Tabs: Streifenliste und Wandplaner-Palette filtern per Checkbox „nur druckbare Teile" nach der Platte des gewählten Druckers (Maße aus den STL-Dateien)',
-    'Neuer Drucker Snapmaker U1 (270 × 270 × 270 mm) – für den Druckbarkeits-Filter; ein 3MF-Export-Profil fehlt noch'
-  ],
-  itemsEn:[
-    'New name: the app is now called “Lumen Track” (formerly “Duality LED Track – Strip Calculator”) – the track system itself is still the Duality LED Track System by Andy Huot',
-    'Orientation: every part now rests on its largest face – straight tracks, tangents and skins on the 35.8 mm face, down/up curves on the X face (instead of always rotating about Y)',
-    'New nested plate packer (2 mm footprint raster, four rotations): L-shaped curves and tangents nest into each other – the sample selection needs 6 instead of 8 plates',
-    'Neutral 0.20 standard values on export: no more 5 mm brim, supports off, textured PEI plate, A1 version matching the profile (02.00.03.54)',
-    'The hint for unrotated parts no longer names a fixed rotation axis but says “largest face down”',
-    'Printer selection in all tabs: the parts list and the wall-plan palette can be filtered with “only printable parts” for the selected printer’s bed (dimensions from the STL files)',
-    'New printer Snapmaker U1 (270 × 270 × 270 mm) – for the printability filter; a 3MF export profile is still missing'
-  ]},
-  {version:'0.3.3-alpha', date:'2026-11-20', items:[
-    '3MF-Export: Tracks und Skins liegen auf getrennten, dicht gepackten Platten – keine Baugruppen mehr (<assemble_item> entfernt)',
-    'Neue Option „Ausrichtung": automatisch flach legen oder nicht drehen, aber Hinweis zu den Teilen anzeigen',
-    'Zu lange Teile (z. B. 260-mm-Nautilus-Skins) werden hochkant exportiert und gemeldet statt übersprungen',
-    'A1-Profil: project_settings.config 1:1 aus einer echten, geprüft ladenden A1-3MF – keine Profil-Konstruktion mehr'
-  ],
-  itemsEn:[
-    '3MF export: tracks and skins now go on separate, densely packed plates – no assemblies anymore (<assemble_item> removed)',
-    'New “Orientation” option: lay parts flat automatically, or keep the orientation and show a hint which parts to rotate',
-    'Parts that are too long when laid flat (e.g. 260-mm Nautilus skins) are exported upright and reported instead of being skipped',
-    'A1 profile: project_settings.config taken verbatim from a real A1 project verified to load – no more profile reconstruction'
-  ]},
-  {version:'0.3.2-alpha', date:'2026-11-20', items:[
-    '3MF-Export: model_settings.config jetzt im vollständigen Bambu-Format (face_count, mesh_stat, source_*, assemble_item) – Behebung von „Invalid configuration“/„keine Geometriedaten“ beim Öffnen in Bambu Studio',
-    '[Content_Types].xml steht jetzt als erster ZIP-Eintrag (OPC-Konvention)'
-  ],
-  itemsEn:[
-    '3MF export: model_settings.config now uses the full Bambu format (face_count, mesh_stat, source_*, assemble_item) to fix “Invalid configuration” / “no geometry data” when opening in Bambu Studio',
-    '[Content_Types].xml is now the first ZIP entry (OPC convention)'
-  ]},
-  {version:'0.3.1-alpha', date:'2026-11-20', items:[
-
-    'JSON-Export enthält jetzt das Wandplan-PNG; nach dem Laden wird es im Planer als Vorschau gezeigt und kann erneut gespeichert werden',
-    'Beim JSON-Import werden der Wandplan neu gezeichnet und der gespeicherte Tab wiederhergestellt',
-    'STL-Import: zusätzliche Schaltfläche zur Einzeldaten-Auswahl, robustere Ordner-Erkennung per Drag & Drop (FileSystemHandle und webkit-Entries) und klare Meldung, wenn ein abgelegter Ordner keine STLs enthält'
-  ],
-  itemsEn:[
-    'JSON export now includes the wall-plan PNG; after loading it is shown as a preview in the planner and can be saved again',
-    'JSON import redraws the wall plan and restores the saved tab',
-    'STL import: additional button for selecting individual files, more reliable folder detection via drag & drop (FileSystemHandle and webkit entries) and a clear message when a dropped folder contains no STLs'
-  ]},
-  {version:'0.3.0-alpha', date:'2026-11-20', items:[
-    'Dritter Tab „3MF-Export": lokale STLs per Ordner-Picker oder Drag & Drop laden – die Dateien bleiben im Browser, nichts wird hochgeladen',
-    'Musterwahl (Hex, Blank, Bars, Kabelmanagement, Nautilus, Matte Hex, 3D-Hex) leitet aus Stückliste oder Wandplan die passenden Skin-STLs ab; Stückzahlen sind in einer Tabelle editierbar',
-    'Druckerwahl P1S oder A1 mit vollständigem Bambu-Studio-Profil; automatische Plattenaufteilung (Regalpacker) und Download einer .3MF mit einem Tab je Platte',
-    'Export übernimmt die Export-Ausrichtung aus den STLs ohne Drehen; automatisches Drehen bleibt TODO, zu hohe Teile werden hingewiesen'
-  ],
-  itemsEn:[
-    'Third tab “3MF export”: load local STLs via folder picker or drag & drop – files stay in the browser, nothing is uploaded',
-    'Pattern selection (hex, blank, bars, cable management, Nautilus, matte hex, 3D hex) derives the matching skin STLs from the parts list or wall plan; counts are editable in a table',
-    'Printer selection P1S or A1 with a complete Bambu Studio profile; automatic plate packing (shelf packer) and download of a .3MF with one tab per plate',
-    'Export keeps the orientation from the STL files without rotating; automatic rotation remains TODO and tall parts are flagged'
-  ]},
-  {version:'0.2.0-alpha', date:'2026-10-09', items:[
-    'Wandplaner als zweiter Tab: Teile per Drag & Drop auf eine Wand, maßstäbliche Bänder (35,8 mm), Wandmaße und 50-mm-Raster',
-    'Magnet-Snapping an freien Endpunkten (45°-Raster), Shift schaltet den Magnet ab',
-    'Drehen (R/Shift+R), Spiegeln (F), Löschen (Entf), Rückgängig (Strg+Z), Zoom/Pan, Inspector, „Plan als Stückliste"',
-    'Drehen im Inspector in beide Richtungen (+45° und −45°) – auch für Tablets ohne Tastatur',
-    'Klonen des gewählten Teils: wird am freien Ende angesetzt und läuft tangential weiter (bei Geraden identische Ausrichtung; Knopf im Inspector oder Strg+D)',
-    'Wandplan als PNG exportieren („Bild speichern", auf die Wand zugeschnitten)',
-    'Links (Bundle, Einzelprojekte, Designer) als Abschnitt unten auf der Seite; die Kopfzeilen-Links sind dorthin gewandert',
-    'Wandplan in localStorage und JSON-Export/-Import; Export markiert die App-Version',
-    'Filter nach Serie (Original/Evolution) und Form (gerade/gebogen) – gemeinsam für Streifenliste und Wandplaner-Palette',
-    'Dark Mode mit Umschalter (Sonne/Mond) in der Kopfzeile; gespeichert, Standard folgt der System-Einstellung',
-    'Behoben: Wandplaner-Tab zeigte die Streifenliste darüber; Ziehen aus der Palette war per Touch nicht möglich',
-    'Benutzeroberfläche zweisprachig (Deutsch/English, Umschalter oben rechts); Längen-Badges als Nennwert/Rundung dargestellt'
-  ],
-  itemsEn:[
-    'Wall planner as second tab: drag & drop parts onto a wall, to-scale strips (35.8 mm), wall dimensions and 50 mm grid',
-    'Magnet snapping to free endpoints (45° grid), Shift disables the magnet',
-    'Rotate (R/Shift+R), flip (F), delete (Del), undo (Ctrl+Z), zoom/pan, inspector, “adopt plan as parts list”',
-    'Rotate in both directions in the inspector (+45° and −45°) – also for tablets without a keyboard',
-    'Clone selected part: attached at the free end and continues tangentially (same direction for straights; button in the inspector or Ctrl+D)',
-    'Export wall plan as PNG (“Save image”, cropped to the wall)',
-    'Links (bundle, individual projects, designer) as a section at the bottom of the page; the header links moved there',
-    'Wall plan in localStorage and JSON export/import; the export marks the app version',
-    'Filters by series (Original/Evolution) and shape (straight/curved) – shared by the strip list and the wall-planner palette',
-    'Dark mode with a toggle (sun/moon) in the header; persisted, defaults to the system setting',
-    'Fixed: the wall planner tab showed the strip list above it; dragging from the palette was not possible via touch',
-    'The user interface is now bilingual (German/English, toggle in the top right); length badges are shown as nominal/rounded'
-  ]},
-  {version:'0.1.0', date:'2026-10-08', items:[
-    'Erste Version: Streifenrechner aller 56 strip-führenden Teile mit Pfadlänge, Auswahl, Summe/Rollen-Rest, JSON-Export/-Import'
-  ],
-  itemsEn:[
-    'First version: strip calculator for all 56 strip-carrying parts with path length, selection, sum/roll remainder, JSON export/import'
+    'First version: strip calculator for all strip-carrying parts with path length, selection, sum/roll remainder, JSON export/import.'
   ]}
 ];
 function verLabel(v){
