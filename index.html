@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
 <title>Lumen Track – Streifenrechner</title>
 <style>
   :root{
@@ -184,6 +185,7 @@
     <button class="tab active" id="tabList" data-t="tabList">Streifenliste</button>
     <button class="tab" id="tabPlan" data-t="tabPlan">Wandplaner</button>
     <button class="tab" id="tabExport" data-t="tabExport">3MF-Export</button>
+    <button class="tab" id="tabGuide" data-t="tabGuide">Anleitung</button>
   </div>
 
   <div class="grid" id="viewList">
@@ -207,10 +209,19 @@
         <label style="font-size:13px;display:flex;gap:6px;align-items:center;white-space:nowrap">
           <input type="checkbox" id="editMode"> <span data-t="editLbl">Maße editieren</span>
         </label>
+        <button id="btnCollapseAll" type="button" data-t="collapseAll">Alle zuklappen</button>
       </div>
       <div class="note" id="fitNote" hidden></div>
+      <div class="toolbar" style="margin-top:4px;margin-bottom:8px;align-items:center">
+        <label style="font-size:13px;display:flex;gap:6px;align-items:center;white-space:nowrap">
+          <input type="checkbox" id="spliceAutoTop"> <span data-t="accSpliceAuto">Splice-Blocks automatisch (Anzahl Tracks − 1)</span>
+        </label>
+        <span class="note" style="margin:0;font-size:12px" data-t="accHintTop">Endblöcke und weiteres Zubehör unten in der Liste.</span>
+      </div>
       <div id="catalog"></div>
-      <div class="note" data-t="catNote">Zubehör ohne Strip (Skins, Splice-Blocks, Mounts, Light-Couplings) ist bewusst nicht enthalten.</div>
+      <div class="cat" style="margin-top:16px;cursor:pointer;user-select:none" data-t="accH" data-cat="acc">Zubehör</div>
+      <div id="accCatalog"></div>
+      <div class="note" data-t="accNote">Zubehör ohne Streifenlänge; trägt nicht zur mm-Summe bei. Splice-Blocks können automatisch (Anzahl Tracks − 1) hinzugefügt werden.</div>
     </section>
 
     <aside class="card">
@@ -348,6 +359,12 @@
       <tbody id="expBody"></tbody>
     </table>
     <div class="expstat" id="expStat"></div>
+    <div class="note" id="expHardware" style="color:var(--miss);font-weight:600;margin-top:8px"></div>
+  </section>
+
+  <section class="card" id="viewGuide" hidden>
+    <h2 data-t="guideH2">Anleitung (Duality LED Track System)</h2>
+    <div id="guideBody" style="font-size:14px;line-height:1.55"></div>
   </section>
 
   <footer data-t="foot">Berechnung: Länge der Linie, auf der der Streifen im Kanal liegt. Gerade Teile = Nennmaß aus dem Dateinamen; Kurven/Winkelteile = Rundungswerte anhand von Radius und Winkel. Teile ohne Wert („Maß fehlt“) gehen nicht in die Summe ein. Im Wandplaner werden die Teile schematisch als Mittellinie (Kern des Kanals) mit 35,8 mm Bandbreite gezeichnet; die Längen für die Auswertung liefert weiterhin die Liste (Streifen-Mittellinie), nicht das gezeichnete Band.</footer>
@@ -355,11 +372,11 @@
   <section class="linkbox" id="links">
     <h2 data-t="linksH2">Links</h2>
     <ul>
-      <li><a href="https://www.printables.com/model/1637420-duality-track-system-bundle-original-track-and-evo" target="_blank" rel="noopener">Duality Track System Bundle – Original Track and Evolution Pack</a></li>
-      <li><a href="https://www.printables.com/model/1365700-duality-led-track-system" target="_blank" rel="noopener">Track System (Original)</a></li>
-      <li><a href="https://www.printables.com/model/1637201-duality-evolution-pack" target="_blank" rel="noopener">Evolution Pack</a></li>
-      <li><a href="https://www.printables.com/model/1365694-creative-commons-duality-led-track-system-skins" target="_blank" rel="noopener">Skins (Creative Commons)</a></li>
-      <li><a href="https://www.printables.com/@AndyHuot_3193751" target="_blank" rel="noopener">Designer: Andy Huot Creations</a></li>
+      <li><a href="https://www.printables.com/model/1637420-duality-track-system-bundle-original-track-and-evo" target="_blank" rel="noopener noreferrer">Duality Track System Bundle – Original Track and Evolution Pack</a></li>
+      <li><a href="https://www.printables.com/model/1365700-duality-led-track-system" target="_blank" rel="noopener noreferrer">Track System (Original)</a></li>
+      <li><a href="https://www.printables.com/model/1637201-duality-evolution-pack" target="_blank" rel="noopener noreferrer">Evolution Pack</a></li>
+      <li><a href="https://www.printables.com/model/1365694-creative-commons-duality-led-track-system-skins" target="_blank" rel="noopener noreferrer">Skins (Creative Commons)</a></li>
+      <li><a href="https://www.printables.com/@AndyHuot_3193751" target="_blank" rel="noopener noreferrer">Designer: Andy Huot Creations</a></li>
     </ul>
   </section>
 
@@ -374,6 +391,21 @@
 <div class="part-prev" id="partPrev" role="tooltip" aria-hidden="true" hidden>
   <canvas id="partPrevCv" width="336" height="216"></canvas>
   <div class="cap" id="partPrevCap"></div>
+</div>
+
+<div id="partModal" role="dialog" aria-modal="true" hidden style="position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55)">
+  <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;max-width:92vw;max-height:92vh;overflow:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <b id="partModalTitle"></b>
+      <button id="partModalClose" type="button">✕</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button id="partModalModeBand" type="button">Streifen (Band)</button>
+      <button id="partModalModeIso" type="button">Isometrisch</button>
+    </div>
+    <canvas id="partModalCv" width="720" height="480" style="display:block;background:var(--canvas-bg);border:1px solid var(--line);border-radius:8px"></canvas>
+    <div id="partModalCap" style="margin-top:6px;font-size:12px;color:var(--muted)"></div>
+  </div>
 </div>
 
 <script>
@@ -404,6 +436,7 @@ const I18N = {
     themeBtn:'Hell/Dunkel umschalten',
     selParts:'Teile auswählen', filterPh:'Suchen (z. B. 90, tangent, base) …',
     editLbl:'Maße editieren',
+    collapseAll:'Alle zuklappen', expandAll:'Alle aufklappen',
     filterSeries:'Serie', filterShape:'Form', filterAll:'Alle',
     filterPrinter:'Drucker', fitsOnly:'nur druckbare Teile',
     printerNoProfile:'kein Profil',
@@ -412,6 +445,10 @@ const I18N = {
     seriesOrig:'Original', seriesEvo:'Evolution',
     shapeStraight:'Gerade', shapeCurved:'Gebogen/Gewinkelt',
     catNote:'Zubehör ohne Strip (Skins, Splice-Blocks, Mounts, Light-Couplings) ist bewusst nicht enthalten.',
+    accH:'Zubehör (Splice-, End-, Base-Blocks, Kupplungen)',
+    accSpliceAuto:'Splice-Blocks automatisch (Track Verbinder)',
+    accNote:'Zubehör ohne Streifenlänge; trägt nicht zur mm-Summe bei. Splice-Blocks können automatisch (Anzahl Tracks − 1) hinzugefügt werden.',
+    accHintTop:'Endblöcke und weiteres Zubehör unten in der Liste.',
     pickedH2:'Auswahl & Auswertung', stripLbl:'Verfügbare Streifenlänge (m)',
     btnExport:'JSON speichern', btnImport:'JSON laden', btnReset:'Zurücksetzen',
     saveNote:'Der Plan wird automatisch im Browser gespeichert. „JSON speichern“ exportiert Liste, Wandplan und Bild als Datei; später wieder laden.',
@@ -443,8 +480,8 @@ const I18N = {
     toastReset:'Zurückgesetzt', toastSaved:'JSON gespeichert', toastLoaded:'Plan geladen',
     toastErr:'Fehler: {0}', errFormat:'falsches Format', toastNoParts:'Keine Teile im Plan.',
     toastAdopted:'Stückliste übernommen',
-    tabExport:'3MF-Export',
-    exportH2:'Bambu-Studio-3MF erzeugen',
+    tabExport:'3MF-Export', tabGuide:'Anleitung',
+    exportH2:'Bambu-Studio-3MF erzeugen', guideH2:'Anleitung (Duality LED Track System)',
     exportHint:'Die STLs bleiben lokal im Browser – es wird nichts hochgeladen. Auswahl und Muster ergeben die Stückliste; die Platten werden automatisch gefüllt.',
     exportDropTitle:'Ordner oder STL-Dateien auswählen',
     exportDropH:'STL-Ordner hierher ziehen',
@@ -474,7 +511,8 @@ const I18N = {
     btnStlFiles:'STL-Dateien einzeln auswählen',
     expDropEmpty:'Im abgelegten Ordner wurden keine STL-Dateien gefunden. Bitte die STL-Dateien einzeln auswählen oder den Ordner über die Schaltfläche oben wählen.',
     expLoaded:'{0} STL-Dateien geladen. Muster wählen und Stückliste ermitteln.',
-    expNoFileForPart:'Keine STL für {0} gefunden.'
+    expNoFileForPart:'Keine STL für {0} gefunden.',
+    expHardware:'Hinweis (Anleitung): {0} Splice-Block(s) → {1}× M3×6 mm Flachkopfschrauben (2 pro Splice Block) bereithalten.'
   },
   en: {
     brandTitle:'Lumen Track – Strip Calculator',
@@ -484,6 +522,7 @@ const I18N = {
     themeBtn:'Toggle light/dark',
     selParts:'Select parts', filterPh:'Search (e.g. 90, tangent, base)…',
     editLbl:'Edit dimensions',
+    collapseAll:'Collapse all', expandAll:'Expand all',
     filterSeries:'Series', filterShape:'Shape', filterAll:'All',
     filterPrinter:'Printer', fitsOnly:'only printable parts',
     printerNoProfile:'no profile',
@@ -492,6 +531,10 @@ const I18N = {
     seriesOrig:'Original', seriesEvo:'Evolution',
     shapeStraight:'Straight', shapeCurved:'Curved/angled',
     catNote:'Accessories without a strip (skins, splice blocks, mounts, light couplings) are intentionally not included.',
+    accH:'Accessories (splice, end, base blocks, couplings)',
+    accSpliceAuto:'Splice blocks automatically (track connector)',
+    accNote:'Accessories without strip length; not counted in the mm total. Splice blocks can be added automatically (tracks − 1).',
+    accHintTop:'End blocks and further accessories are at the bottom of the list.',
     pickedH2:'Selection & result', stripLbl:'Available strip length (m)',
     btnExport:'Save JSON', btnImport:'Load JSON', btnReset:'Reset',
     saveNote:'The plan is saved automatically in the browser. “Save JSON” exports the list, wall plan and image to a file; load it again later.',
@@ -523,8 +566,8 @@ const I18N = {
     toastReset:'Reset', toastSaved:'JSON saved', toastLoaded:'Plan loaded',
     toastErr:'Error: {0}', errFormat:'wrong format', toastNoParts:'No parts in the plan.',
     toastAdopted:'Parts list adopted',
-    tabExport:'3MF export',
-    exportH2:'Create Bambu Studio 3MF',
+    tabExport:'3MF export', tabGuide:'Guide',
+    exportH2:'Create Bambu Studio 3MF', guideH2:'Guide (Duality LED Track System)',
     exportHint:'The STLs stay local in the browser – nothing is uploaded. Selection and pattern produce the parts list; the plates are filled automatically.',
     exportDropTitle:'Select a folder or STL files',
     exportDropH:'Drop STL folder here',
@@ -554,7 +597,8 @@ const I18N = {
     btnStlFiles:'Select STL files individually',
     expDropEmpty:'No STL files were found in the dropped folder. Please select the STL files individually or choose the folder with the button above.',
     expLoaded:'{0} STL files loaded. Choose a pattern and derive the parts list.',
-    expNoFileForPart:'No STL found for {0}.'
+    expNoFileForPart:'No STL found for {0}.',
+    expHardware:'Note (guide): {0} splice block(s) → keep {1}× M3×6 mm flat-head screws ready (2 per splice block).'
   }
 };
 function t(key, ...args){
@@ -620,8 +664,38 @@ function renderFitNote(){
 }
 
 // Versionierung (SemVer + Kanal-Suffix); oberster Eintrag == APP_VERSION, prüft check.js.
-const APP_VERSION = '0.3.6-alpha';
+const APP_VERSION = '0.3.9-alpha';
 const CHANGELOG = [
+  {version:'0.3.9-alpha', date:'2026-11-26', items:[
+    'Neu: Tab „Anleitung" mit dem Inhalt der guide.pdf (Drucken, LED-Strips, 45°/90°-Tracks, Skins, Base Tracks, Montage, Installation, Warnung)',
+    'Zubehör-Beschreibungen: jede Zubehör-Zeile zeigt jetzt, wofür das Teil gebraucht wird (Splice Block, End/Base Mount, Light Coupling)',
+    'Modal-Ansicht: normale Track-Teile in der Bandansicht, Zubehör mit Band- und Isometrie-Modus'
+  ],
+  itemsEn:[
+    'New: “Guide” tab with the content of guide.pdf (printing, LED strips, 45°/90° tracks, skins, base tracks, assembly, installation, warning)',
+    'Accessory descriptions: each accessory row now shows what the part is used for (splice block, end/base mount, light coupling)',
+    'Modal view: normal track parts in the band view, accessories with band and isometric modes'
+  ]},
+  {version:'0.3.8-alpha', date:'2026-11-26', items:[
+    'Neu: Zubehör-Auswahl in der Streifenliste – Splice-Blocks (automatisch Anzahl Tracks − 1, per Checkbox abwählbar), End Mounts, Base Mounts und Light Couplings mit manueller Stückzahl',
+    'Zubehör erscheint in der Auswahl & Auswertung und im JSON-Export/Import (Feld zubehoer)',
+    'Splice-Auto kann per Checkbox deaktiviert werden; manuelle Stückzahlen setzen den Auto-Modus für den Splice-Block zurück'
+  ],
+  itemsEn:[
+    'New: accessory selection in the parts list – splice blocks (automatically tracks − 1, toggle via checkbox), end mounts, base mounts and light couplings with manual quantities',
+    'Accessories appear in the selection & result and in JSON export/import (zubehoer field)',
+    'Splice auto can be toggled off via checkbox; manual quantities reset auto mode for the splice block'
+  ]},
+  {version:'0.3.7-alpha', date:'2026-11-25', items:[
+    'Sicherheit: DOM-XSS über Datei-/Ordnernamen im Export-Tab behoben – Pfad und Name werden in renderExport() jetzt HTML-escaped (htmlEsc), ohne den Import/Pfad-Matching zu ändern',
+    'Sicherheit: Content-Security-Policy als meta-Tag ergänzt (connect-src none, object-src none, base-uri none, form-action none, frame-ancestors none)',
+    'Hinweis: Weitere Härtungshinweise aus dem Sicherheitsbericht (F-03 JSON-Import hasOwnProperty/Override-Whitelist, F-04 Größenbegrenzungen, F-05 noreferrer) sind dokumentiert und können bei passender Gelegenheit mit umgesetzt werden'
+  ],
+  itemsEn:[
+    'Security: fixed DOM-XSS via file/folder names in the export tab – path and name are now HTML-escaped in renderExport() (htmlEsc) without changing import/path matching',
+    'Security: added a Content-Security-Policy meta tag (connect-src none, object-src none, base-uri none, form-action none, frame-ancestors none)',
+    'Note: further hardening items from the security report (F-03 JSON import hasOwnProperty/override whitelist, F-04 size limits, F-05 noreferrer) are documented and can be picked up later'
+  ]},
   {version:'0.3.6-alpha', date:'2026-11-23', items:[
     'Vorschau in der Streifenliste: Beim Überfahren eines Teils erscheint das 35,8-mm-Band als kleine schematische Grafik (Kategoriefarbe, gestrichelte Mittellinie, Maß im Untertitel)',
     'Die Vorschau wird live aus der Wandplaner-Geometrie gezeichnet – keine Bilddateien, kein zusätzliches Laden; auf Touch-Geräten per Tippen auf den Namen',
@@ -823,6 +897,64 @@ const PARTS = [
   P('vit_e_165',     'Vitality E 165',         'vitality','track_vitality_e_165.stl', 302.4,'stl'),
   P('vit_e_825',     'Vitality E 825',         'vitality','track_vitality_e_825.stl', 193.1,'stl')
 ];
+
+// Zubehör (Splice-, End-, Base-Blocks, Kupplungen) – keine Streifenlänge, manuell oder auto.
+const ACCESSORIES = [
+  {id:'acc_splice',        label:'Splice Block',       file:'spliceblock.stl',        auto:true,
+    desc:{de:'Verbindet zwei Track-Teile an einem Übergang und richtet sie aus (genutet). Mit 2× M3×6 mm Flachkopfschrauben sichern. Anzahl = Track-Teile − 1 (ein Splice pro Übergang).',
+          en:'Joins two track sections at a junction and aligns them (keyed). Secure with 2× M3×6 mm flat-head screws. Count = track parts − 1 (one splice per junction).'}},
+  {id:'acc_splice_evo',    label:'Splice Block (Evo)', file:'e_spliceblock.stl',
+    desc:{de:'Splice-Block der Evolution-Serie für Evo-Track-Teile (gleiche Funktion wie oben).',
+          en:'Splice block from the Evolution series for Evo track parts (same function as above).'}},
+  {id:'acc_endmount',      label:'End Mount',          file:'endmount.stl',
+    desc:{de:'Halterung für das Ende eines Track-Strangs – zur Befestigung an der Wand am Anfang/Ende der Strecke.',
+          en:'Mount for the end of a track run – for fixing to the wall at the start/end of the run.'}},
+  {id:'acc_endmount_evo',  label:'End Mount (Evo)',    file:'e_endmount.stl',
+    desc:{de:'Endhalterung der Evolution-Serie.',
+          en:'End mount from the Evolution series.'}},
+  {id:'acc_basemount',     label:'Base Mount',         file:'basemount.stl',
+    desc:{de:'Basisplatte zur Wandmontage; optionaler Startpunkt mit integrierter Elektronik (ESP32/WLED) und Barrel-Jack.',
+          en:'Base plate for wall mounting; optional starting point with integrated electronics (ESP32/WLED) and barrel jack.'}},
+  {id:'acc_lightcoupling', label:'Light Coupling',     file:'lightcoupling.stl',
+    desc:{de:'Verbindet LED-Streifen über Track-Grenzen hinweg lichtdicht und hält den Strip in Position.',
+          en:'Connects LED strips across track boundaries light-tight and keeps the strip in place.'}}
+];
+const ACC_BY_ID = Object.fromEntries(ACCESSORIES.map(a=>[a.id,a]));
+
+const GUIDE_SECTIONS = {
+  de: [
+    {t:'Drucken', b:'Alles sollte ohne Stützen druckbar sein, außer <code>Down_90_100</code>. Schichthöhe 0,2 mm. Die Skins haben eine 0,3 mm dicke Diffusionsschicht (weiß drucken); Schichthöhenanpassung nötig, falls 0,3 nicht glatt aufgeht (z. B. 0,2 → 0,3 bei 0,1 mm). Farbwechsel bei 0,5 mm Schichthöhe. Ca. 230 g Filament pro Meter Skin + Track.'},
+    {t:'LED-Strips', b:'Ausgelegt für 60 LEDs/m, 10 mm breit. Alle Track-Längen sind durch 3 LEDs (50 mm) teilbar, damit 12-V-Strips mit 3 LEDs pro IC nutzbar sind. Beim Einlegen: Strip-Länge = Track-Länge; Mitten der Löt-Pads an den Track-Enden ausrichten, damit der Strip an lötbaren Positionen endet. Solderless-Connector verbrauchen ~4 mm → leichtes Wellen (Ripples) in den Strip einarbeiten.'},
+    {t:'45°- und 90°-Tracks', b:'Die angegebene Länge ist nicht die physische Abmessung, sondern die LED-Strip-Länge nach dem Umlegen um die Ecke. 3 LEDs werden im Biegeradius verbraucht (die 3 mittleren). Pfeil-Prägung am Track mit der mittleren LED dieser Länge ausrichten.'},
+    {t:'Skins', b:'4 Muster: Hex, Bars, Blank, Cable Management (mit Kabel-Durchführungen). Blank-Skins sind frei/CC – Basis für eigene Designs: Sketch auf der inneren Diffusor-Fläche, 0,8 mm extrudieren/embossen.'},
+    {t:'Base Tracks', b:'Optional. Ohne Base Track: End Track verwenden und Loch für die 3 Drähte bohren. Mit Base Track: nur 12 V anfahren, Barrel-Jack, ESP32 (WLED) integriert – leicht Sensoren hinzufügen.'},
+    {t:'Montage', b:'Track-Teile mit <b>je 1 Splice Block pro Übergang</b> verbinden (genutet zur Ausrichtung), mit 2× M3×6 mm Flachkopfschrauben sichern. Dann LED-Strip, Light Couplings und Skins einbauen.'},
+    {t:'Installation', b:'Loop in Stücken zusammenbauen und vor dem LED-Strip-Einbau an der Wand befestigen. Bei Up_90/Down_90 von dort aus nach außen arbeiten.'},
+    {t:'Warnung', b:'Stromgrenzen der verwendeten Komponenten nicht überschreiten.'},
+    {t:'Zubehör (diese App)', b:'<ul>' +
+      '<li><b>Splice Block</b> – verbindet zwei Track-Teile an einem Übergang, richtet sie aus (genutet), 2× M3×6 mm. Anzahl = Track-Teile − 1.</li>' +
+      '<li><b>End Mount</b> – Halterung für das Ende eines Track-Strangs an der Wand.</li>' +
+      '<li><b>Base Mount</b> – Basisplatte für Wandmontage, optionaler Startpunkt mit Elektronik/Barrel-Jack.</li>' +
+      '<li><b>Light Coupling</b> – verbindet LED-Streifen über Track-Grenzen lichtdicht.</li>' +
+      '</ul>'}
+  ],
+  en: [
+    {t:'Printing', b:'Everything should print without supports except <code>Down_90_100</code>. Layer height 0.2 mm. Skins have a 0.3 mm diffusion layer (print white); adjust layer height if 0.3 does not divide evenly (e.g. 0.2 → 0.3 at 0.1 mm). Color change at 0.5 mm layer height. Approx. 230 g filament per meter of skin + track.'},
+    {t:'LED strips', b:'Designed for 60 LEDs/m, 10 mm wide. All track lengths divisible by 3 LEDs (50 mm) for 12 V 3-LEDs-per-IC strips. When installing, strip length = track length; center of solder pads aligns with track ends. Solderless connectors consume ~4 mm → add small ripples to compensate.'},
+    {t:'45° and 90° tracks', b:'The specified length is not a physical dimension but the LED strip length after folding around the corner. 3 LEDs are consumed in the bend radius (the 3 center LEDs). Align the arrow emboss with the center LED of that strip length.'},
+    {t:'Skins', b:'4 patterns: Hex, Bars, Blank, Cable Management (with cable cutouts). Blank skins are free/CC – base for custom skins: sketch on the inner diffuser surface, extrude/emboss 0.8 mm.'},
+    {t:'Base tracks', b:'Optional. Without: use an End Track and drill a hole for the 3 wires. With: run 12 V only, barrel jack, ESP32 (WLED) integrated – easy to add sensors.'},
+    {t:'Assembly', b:'Join track pieces with <b>1 splice block per junction</b> (keyed to align), secure with 2× M3×6 mm flat-head screws. Then install LED strip, light couplings and skins.'},
+    {t:'Installation', b:'Assemble the loop in pieces and install on the wall before the LED strip. When using Up_90 or Down_90, start there and work outward.'},
+    {t:'Warning', b:'Do not exceed the current limit of any components you are using.'},
+    {t:'Accessories (this app)', b:'<ul>' +
+      '<li><b>Splice Block</b> – joins two track sections at a junction, aligns them (keyed), 2× M3×6 mm. Count = track parts − 1.</li>' +
+      '<li><b>End Mount</b> – mount for the end of a track run on the wall.</li>' +
+      '<li><b>Base Mount</b> – base plate for wall mounting, optional starting point with electronics/barrel jack.</li>' +
+      '<li><b>Light Coupling</b> – connects LED strips across track boundaries light-tight.</li>' +
+      '</ul>'}
+  ]
+};
 
 // <geo>
 // Schematische Mittellinien (Kern) der Track-Teile für den Wandplaner – rein, DOM-frei.
@@ -3220,6 +3352,9 @@ const EXPORT_GAP = 2; // mm Abstand zwischen zwei Teilen auf einer Platte
 function xmlEsc(s){
   return String(s).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));
 }
+function htmlEsc(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 function uuidTail(n, tail){ return n.toString(16).padStart(8,'0') + tail; }
 
 const CRC_TABLE = new Uint32Array(256).map((_, n)=>{
@@ -3679,8 +3814,18 @@ async function build3mf(plates, printer, onProgress){
 
 const STORE = 'duality-streifenrechner-v1';
 let state = {stripM:5, qty:{}, override:{}, edit:false, tab:'list', plan:null, lang:'de', theme:'light',
+  acc:{spliceAuto:true, qty:{}},
+  collapsed:{},
   exp:{printer:'p1s', pattern:'hex', source:'qty', includeTrack:true, rotate:'auto', counts:{}}};
 
+function sanitizeAcc(a){
+  const out = {spliceAuto:true, qty:{}};
+  if(a && typeof a==='object'){
+    out.spliceAuto = a.spliceAuto !== false;
+    if(a.qty && typeof a.qty==='object') out.qty = a.qty;
+  }
+  return out;
+}
 function load(){
   let hadTheme = false;
   try{
@@ -3690,8 +3835,10 @@ function load(){
         state.stripM = typeof s.stripM==='number' ? s.stripM : 5;
         state.qty = s.qty && typeof s.qty==='object' ? s.qty : {};
         state.override = s.override && typeof s.override==='object' ? s.override : {};
-        state.tab = (s.tab === 'plan' || s.tab === 'export') ? s.tab : 'list';
+        state.tab = (s.tab === 'plan' || s.tab === 'export' || s.tab === 'guide') ? s.tab : 'list';
         state.exp = sanitizeExp(s.exp);
+         state.acc = sanitizeAcc(s.acc);
+         state.collapsed = (s.collapsed && typeof s.collapsed==='object') ? s.collapsed : {};
         state.lang = (s.lang === 'en' || s.lang === 'de') ? s.lang : 'de';
         if(s.theme === 'dark' || s.theme === 'light'){ state.theme = s.theme; hadTheme = true; }
         state.plan = sanitizePlan(s.plan);
@@ -3715,7 +3862,22 @@ const CANVAS_BG = {light:'#eef0f3', dark:'#1c232b'};
 function canvasBg(){ return CANVAS_BG[state.theme === 'dark' ? 'dark' : 'light'] || '#eef0f3'; }
 
 const byId = Object.fromEntries(PARTS.map(p=>[p.id,p]));
+const byAnyId = Object.assign({}, byId, ACC_BY_ID);
 function mmOf(p){ const o = state.override[p.id]; return (o===undefined||o===null||o==='') ? p.mm : Number(o); }
+function totalTrackCount(){ let n=0; for(const id in state.qty) if(state.qty[id]>0 && byId[id]) n += (state.qty[id]||0); return n; }
+function accQty(id){
+  const a = ACCESSORIES.find(x=>x.id===id);
+  if(a && a.auto && id==='acc_splice' && state.acc && state.acc.spliceAuto){
+    return Math.max(0, totalTrackCount()-1);
+  }
+  return (state.acc && state.acc.qty && state.acc.qty[id]) || 0;
+}
+function allQtyEntries(){
+  const out = {};
+  for(const id in state.qty) if(state.qty[id]>0 && byAnyId[id]) out[id] = state.qty[id];
+  for(const a of ACCESSORIES){ const q = accQty(a.id); if(q>0) out[a.id] = q; }
+  return out;
+}
 function fmt(n,d){ return n.toLocaleString(state.lang==='en' ? 'en-US' : 'de-DE',{minimumFractionDigits:d,maximumFractionDigits:d}); }
 
 function badge(p){
@@ -3738,7 +3900,9 @@ function renderCatalog(){
   for(const c of CATS){
     const rows = PARTS.filter(p=>p.cat===c.id && partMatches(p, serie, shape, q));
     if(!rows.length) continue;
-    html += `<div class="cat">${catLabel(c)}</div>`;
+    const collapsed = !!(state.collapsed && state.collapsed[c.id]);
+    html += `<div class="cat" data-cat="${c.id}" style="cursor:pointer;user-select:none">${collapsed?'▸':'▾'} ${catLabel(c)} <span style="font-weight:400;opacity:.7">(${rows.length})</span></div>`;
+    if(collapsed) continue;
     for(const p of rows){
       const v = mmOf(p);
       const valCell = edit
@@ -3759,6 +3923,44 @@ function renderCatalog(){
   document.getElementById('catalog').innerHTML = html || '<div class="empty">'+t('noMatch')+'</div>';
 }
 
+function renderAcc(){
+  const box = document.getElementById('accCatalog');
+  if(!box) return;
+  const auto = !!(state.acc && state.acc.spliceAuto);
+  const tc = totalTrackCount();
+  const collapsed = !!(state.collapsed && state.collapsed.acc);
+  // Header aktualisieren (Pfeil + Anzahl)
+  const hdr = document.querySelector('.cat[data-cat="acc"]');
+  if(hdr) hdr.innerHTML = `${collapsed?'▸':'▾'} ${t('accH')} <span style="font-weight:400;opacity:.7">(${ACCESSORIES.length})</span>`;
+  if(collapsed){
+    box.innerHTML = `<div class="empty" style="font-size:12px">${ACCESSORIES.length} ${state.lang==='en'?'accessories hidden':'Zubehör ausgeblendet'}</div>`;
+    const topCb = document.getElementById('spliceAutoTop');
+    if(topCb) topCb.checked = auto;
+    updateCollapseBtn();
+    return;
+  }
+  let html = '';
+  for(const a of ACCESSORIES){
+    let q = accQty(a.id);
+    if(a.auto && a.id==='acc_splice' && auto) q = Math.max(0, tc-1);
+    const isAuto = a.auto && a.id==='acc_splice' && auto;
+    const dsc = (a.desc && (state.lang==='en'?a.desc.en:a.desc.de)) || '';
+    html += `<div class="row" data-acc="${a.id}">
+      <div class="lbl"><b>${a.label}</b><span class="file" title="${a.file}">${a.file}${isAuto ? ' · auto' : ''}</span>${dsc ? `<span class="sub2" style="display:block;font-size:11px;margin-top:2px">${dsc}</span>` : ''}</div>
+      <div class="qty">
+        <button data-accdec="${a.id}" title="−1">−</button>
+        <input type="number" min="0" step="1" data-accqty="${a.id}" value="${q||0}">
+        <button data-accinc="${a.id}" title="+1">+</button>
+      </div>
+    </div>`;
+  }
+  box.innerHTML = html;
+  // obere Checkbox synchronisieren
+  const topCb = document.getElementById('spliceAutoTop');
+  if(topCb) topCb.checked = !!(state.acc && state.acc.spliceAuto);
+  updateCollapseBtn();
+}
+
 /* Vorschau in der Streifenliste: schematisches 35,8-mm-Band aus shapeOf (wie im Wandplaner).
    Desktop per Hover, Touch per Tippen auf den Namen. Reine Anzeige, keine Bilddateien. */
 let prevPart = null;
@@ -3767,6 +3969,57 @@ function drawPartPrev(p){
   if(!cv) return;
   const ctx = cv.getContext('2d');
   ctx.clearRect(0,0,cv.width,cv.height);
+  if(ACC_BY_ID[p.id]){
+    // Zubehör: isometrische (schräg von oben) Vorschau – grobe 3D-Form pro Typ
+    const cx = cv.width/2, cy = cv.height/2 + 10;
+    const S = 1.6;
+    const iso = (x, y, z) => ({ x: cx + (x - y) * 0.866 * S, y: cy + (x + y) * 0.5 * S - z * S });
+    const poly = (pts, fill, stroke) => {
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.closePath();
+      if(fill){ ctx.fillStyle = fill; ctx.fill(); }
+      if(stroke){ ctx.strokeStyle = stroke; ctx.lineWidth = 1.2; ctx.stroke(); }
+    };
+    const box = (x0,y0,z0, x1,y1,z1, cTop, cLeft, cRight) => {
+      const A = iso(x0,y0,z1), B = iso(x1,y0,z1), C = iso(x1,y1,z1), D = iso(x0,y1,z1);
+      const E = iso(x0,y0,z0), F = iso(x1,y0,z0), G = iso(x1,y1,z0), H = iso(x0,y1,z0);
+      poly([A,B,C,D], cTop, '#444');
+      poly([E,F,B,A], cRight, '#444');
+      poly([F,G,C,B], cLeft, '#444');
+    };
+    const id = p.id;
+    if(id.startsWith('acc_splice')){
+      // zwei Track-Enden + verbindender Splice-Block in der Mitte
+      box(-55,-8,0, -15,8,8, '#9aa0a8','#6b7078','#7e848c');
+      box(15,-8,0, 55,8,8, '#9aa0a8','#6b7078','#7e848c');
+      box(-18,-12,0, 18,12,14, '#4a8fe0','#2f6feb','#3a7fd6');
+    } else if(id.startsWith('acc_endmount')){
+      // End Mount: Basisplatte + aufrechte Klammer
+      box(-30,-18,0, 30,18,4, '#9aa0a8','#6b7078','#7e848c');
+      box(-30,-18,4, -18,18,22, '#9aa0a8','#6b7078','#7e848c');
+      box(18,-18,4, 30,18,22, '#9aa0a8','#6b7078','#7e848c');
+      box(-18,-6,4, 18,6,22, '#4a8fe0','#2f6feb','#3a7fd6');
+    } else if(id.startsWith('acc_basemount')){
+      // Base Mount: flache Basis + Zapfen
+      box(-34,-22,0, 34,22,4, '#9aa0a8','#6b7078','#7e848c');
+      box(-10,-10,4, 10,10,18, '#4a8fe0','#2f6feb','#3a7fd6');
+    } else if(id.startsWith('acc_lightcoupling')){
+      // Light Coupling: zwei Blöcke + Mittelstück
+      box(-40,-10,0, -8,10,12, '#9aa0a8','#6b7078','#7e848c');
+      box(8,-10,0, 40,10,12, '#9aa0a8','#6b7078','#7e848c');
+      box(-8,-6,2, 8,6,10, '#4a8fe0','#2f6feb','#3a7fd6');
+    } else {
+      box(-30,-20,0, 30,20,16, '#9aa0a8','#6b7078','#7e848c');
+    }
+    ctx.fillStyle = '#e6ebf0';
+    ctx.font = '11px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(p.file, cx, cv.height-8);
+    return;
+  }
   let sh;
   try{ sh = shapeOf(p); }catch(e){ return; }
   const half = 35.8/2;
@@ -3803,6 +4056,7 @@ function drawPartPrev(p){
   }
 }
 function partPrevCap(p){
+  if(ACC_BY_ID[p.id]) return p.label + ' · ' + p.file;
   const v = mmOf(p);
   return labelOf(p) + ' · ' + (v===null || Number.isNaN(v) ? t('badgeMiss') : fmt(v,1)+' mm');
 }
@@ -3863,12 +4117,253 @@ function hidePartPrev(){
   window.addEventListener('resize', hidePartPrev);
 })();
 
-function renderPicked(){  const ids = Object.keys(state.qty).filter(id=>state.qty[id]>0 && byId[id]);
+(function bindAccPrev(){
+  const cat = document.getElementById('accCatalog');
+  if(!cat) return;
+  const rowPart = el=>{
+    const row = el && el.closest ? el.closest('.row') : null;
+    if(!row) return null;
+    if(row.dataset.part) return byId[row.dataset.part] || null;
+    if(row.dataset.acc) return ACC_BY_ID[row.dataset.acc] || null;
+    return null;
+  };
+  const touch = ()=> !!(window.matchMedia && window.matchMedia('(hover: none)').matches);
+  cat.addEventListener('pointerover', e=>{
+    if(e.pointerType && e.pointerType !== 'mouse') return;
+    const lbl = e.target.closest ? e.target.closest('.lbl') : null;
+    const p = rowPart(lbl);
+    if(p && p !== prevPart) showPartPrev(p, lbl.closest('.row'));
+  });
+  cat.addEventListener('pointerout', e=>{
+    if(e.pointerType && e.pointerType !== 'mouse') return;
+    const lbl = e.target.closest ? e.target.closest('.lbl') : null;
+    if(lbl && e.relatedTarget && lbl.contains(e.relatedTarget)) return;
+    hidePartPrev();
+  });
+  cat.addEventListener('click', e=>{
+    if(!touch()) return;
+    const lbl = e.target.closest ? e.target.closest('.lbl') : null;
+    const p = rowPart(lbl);
+    if(!p){ hidePartPrev(); return; }
+    if(prevPart === p && !document.getElementById('partPrev').hidden) hidePartPrev();
+    else showPartPrev(p, lbl.closest('.row'));
+  });
+})();
+
+// ---- Vergrößerte Ansicht (Modal) ----
+let modalPart = null, modalMode = 'band';
+function openPartModal(p){
+  if(!p) return;
+  modalPart = p;
+  // Standardmodus: Zubehör isometrisch, Track-Teile normale Bandansicht
+  modalMode = ACC_BY_ID[p.id] ? 'iso' : 'band';
+  const m = document.getElementById('partModal');
+  if(m) m.hidden = false;
+  renderPartModal();
+}
+function closePartModal(){
+  const m = document.getElementById('partModal');
+  if(m) m.hidden = true;
+  modalPart = null;
+}
+function renderPartModal(){
+  if(!modalPart) return;
+  const p = modalPart;
+  const cv = document.getElementById('partModalCv');
+  if(!cv) return;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const title = document.getElementById('partModalTitle');
+  if(title) title.textContent = (ACC_BY_ID[p.id] ? p.label : labelOf(p)) + ' · ' + p.file;
+  const cap = document.getElementById('partModalCap');
+  const isAcc = !!ACC_BY_ID[p.id];
+  // Modus-Buttons nur für Zubehör anzeigen
+  document.getElementById('partModalModeBand').hidden = !isAcc;
+  document.getElementById('partModalModeIso').hidden = !isAcc;
+  if(isAcc){
+    document.getElementById('partModalModeBand').style.fontWeight = modalMode==='band' ? '700' : '400';
+    document.getElementById('partModalModeIso').style.fontWeight = modalMode==='iso' ? '700' : '400';
+  }
+
+  if(isAcc){
+    if(modalMode === 'iso') drawAccessoryIsoLarge(p, cv);
+    else drawAccessoryNormalLarge(p, cv);
+  } else {
+    drawTrackBandLarge(p, cv);
+  }
+  if(cap) cap.textContent = ACC_BY_ID[p.id] ? (p.label + ' · ' + p.file) :
+    (labelOf(p) + ' · ' + (mmOf(p)===null?'—':fmt(mmOf(p),1)+' mm'));
+}
+function drawAccessoryNormalLarge(p, cv){
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const cx = cv.width/2, cy = cv.height/2;
+  const S = 2.6;
+  ctx.strokeStyle = '#667085'; ctx.lineWidth = 2; ctx.fillStyle = '#b0b5bd';
+  const id = p.id;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(S, S);
+  if(id.startsWith('acc_splice')){
+    ctx.fillStyle = '#9aa0a8'; ctx.fillRect(-70, -18, 50, 36); ctx.strokeRect(-70, -18, 50, 36);
+    ctx.fillRect(20, -18, 50, 36); ctx.strokeRect(20, -18, 50, 36);
+    ctx.fillStyle = '#2f6feb'; ctx.fillRect(-18, -22, 36, 44); ctx.strokeRect(-18, -22, 36, 44);
+  } else if(id.startsWith('acc_endmount')){
+    ctx.beginPath();
+    ctx.moveTo(-40,-30); ctx.lineTo(-40,30); ctx.lineTo(-10,30);
+    ctx.lineTo(-10,10); ctx.lineTo(-28,10); ctx.lineTo(-28,-10);
+    ctx.lineTo(28,-10); ctx.lineTo(28,10); ctx.lineTo(10,10);
+    ctx.lineTo(10,30); ctx.lineTo(40,30); ctx.lineTo(40,-30);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  } else if(id.startsWith('acc_basemount')){
+    ctx.fillRect(-50, 10, 100, 16); ctx.strokeRect(-50, 10, 100, 16);
+    ctx.fillRect(-12, -20, 24, 30); ctx.strokeRect(-12, -20, 24, 30);
+  } else if(id.startsWith('acc_lightcoupling')){
+    ctx.beginPath(); ctx.arc(-22, 0, 18, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(22, 0, 18, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#2f6feb'; ctx.fillRect(-6, -6, 12, 12); ctx.strokeRect(-6, -6, 12, 12);
+  } else {
+    ctx.fillRect(-40, -20, 80, 40); ctx.strokeRect(-40, -20, 80, 40);
+  }
+  ctx.restore();
+  ctx.fillStyle = '#e6ebf0'; ctx.font = '11px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText(p.file, cx, cv.height-8);
+}
+function drawAccessoryIsoLarge(p, cv){
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const cx = cv.width/2, cy = cv.height/2 + 20;
+  const S = 3.2;
+  const iso = (x, y, z) => ({ x: cx + (x - y) * 0.866 * S, y: cy + (x + y) * 0.5 * S - z * S });
+  const poly = (pts, fill) => { ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y); for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y); ctx.closePath(); if(fill){ctx.fillStyle=fill;ctx.fill();} ctx.strokeStyle='#333'; ctx.lineWidth=1.4; ctx.stroke(); };
+  const box = (x0,y0,z0,x1,y1,z1,cTop,cLeft,cRight) => {
+    const A=iso(x0,y0,z1),B=iso(x1,y0,z1),C=iso(x1,y1,z1),D=iso(x0,y1,z1);
+    const E=iso(x0,y0,z0),F=iso(x1,y0,z0),G=iso(x1,y1,z0),H=iso(x0,y1,z0);
+    poly([A,B,C,D],cTop); poly([E,F,B,A],cRight); poly([F,G,C,B],cLeft);
+  };
+  const id = p.id;
+  if(id.startsWith('acc_splice')){
+    box(-55,-8,0,-15,8,8,'#9aa0a8','#6b7078','#7e848c');
+    box(15,-8,0,55,8,8,'#9aa0a8','#6b7078','#7e848c');
+    box(-18,-12,0,18,12,14,'#4a8fe0','#2f6feb','#3a7fd6');
+  } else if(id.startsWith('acc_endmount')){
+    box(-30,-18,0,30,18,4,'#9aa0a8','#6b7078','#7e848c');
+    box(-30,-18,4,-18,18,22,'#9aa0a8','#6b7078','#7e848c');
+    box(18,-18,4,30,18,22,'#9aa0a8','#6b7078','#7e848c');
+    box(-18,-6,4,18,6,22,'#4a8fe0','#2f6feb','#3a7fd6');
+  } else if(id.startsWith('acc_basemount')){
+    box(-34,-22,0,34,22,4,'#9aa0a8','#6b7078','#7e848c');
+    box(-10,-10,4,10,10,18,'#4a8fe0','#2f6feb','#3a7fd6');
+  } else if(id.startsWith('acc_lightcoupling')){
+    box(-40,-10,0,-8,10,12,'#9aa0a8','#6b7078','#7e848c');
+    box(8,-10,0,40,10,12,'#9aa0a8','#6b7078','#7e848c');
+    box(-8,-6,2,8,6,10,'#4a8fe0','#2f6feb','#3a7fd6');
+  } else {
+    box(-30,-20,0,30,20,16,'#9aa0a8','#6b7078','#7e848c');
+  }
+}
+function drawTrackBandLarge(p, cv){
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  let sh; try{ sh = shapeOf(p, mmOf(p)); }catch(e){ return; }
+  const half = 35.8/2;
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  for(const pts of sh.paths) for(const q of pts){
+    if(q[0]-half<x0) x0=q[0]-half; if(q[0]+half>x1) x1=q[0]+half;
+    if(q[1]-half<y0) y0=q[1]-half; if(q[1]+half>y1) y1=q[1]+half;
+  }
+  const pad=40, spanX=Math.max(1,x1-x0), spanY=Math.max(1,y1-y0);
+  const k=Math.min((cv.width-2*pad)/spanX,(cv.height-2*pad)/spanY);
+  const ox=(cv.width-spanX*k)/2 - x0*k;
+  const oy=(cv.height+spanY*k)/2 + y0*k;
+  const line = pts=>{ ctx.beginPath(); ctx.moveTo(ox+pts[0][0]*k, oy-pts[0][1]*k); for(let i=1;i<pts.length;i++) ctx.lineTo(ox+pts[i][0]*k, oy-pts[i][1]*k); ctx.stroke(); };
+  const col = CATCOL[p.cat] || '#2f6feb';
+  const bw=Math.max(4, 35.8*k);
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.strokeStyle='rgba(0,0,0,.22)'; ctx.lineWidth=bw+3;
+  for(const pts of sh.paths) line(pts);
+  ctx.strokeStyle=col; ctx.lineWidth=bw;
+  for(const pts of sh.paths) line(pts);
+  if(bw>=8){ ctx.save(); ctx.setLineDash([Math.max(4,bw*.55),Math.max(4,bw*.45)]); ctx.strokeStyle='rgba(255,255,255,.8)'; ctx.lineWidth=Math.max(1.5,bw*.09); for(const pts of sh.paths) line(pts); ctx.restore(); }
+}
+function drawTrackIsoLarge(p, cv){
+  // Isometrisch mit Dicke/Höhe: Band wird als 3D-Ribbon extrudiert
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  let sh; try{ sh = shapeOf(p, mmOf(p)); }catch(e){ return; }
+  const half = 35.8/2;
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  for(const pts of sh.paths) for(const q of pts){
+    if(q[0]-half<x0) x0=q[0]-half; if(q[0]+half>x1) x1=q[0]+half;
+    if(q[1]-half<y0) y0=q[1]-half; if(q[1]+half>y1) y1=q[1]+half;
+  }
+  const pad=50, spanX=Math.max(1,x1-x0), spanY=Math.max(1,y1-y0);
+  const k=Math.min((cv.width-2*pad)/spanX,(cv.height-2*pad)/spanY)*0.62;
+  const ox=(cv.width-spanX*k)/2 - x0*k;
+  const oy=(cv.height+spanY*k)/2 + y0*k;
+  const H = 21.8; // Bauhöhe des Track-Profils (mm)
+  const iso = (x, y, z) => ({ x: ox + (x - y) * 0.866 * k, y: oy + (x + y) * 0.5 * k - z * k });
+  const poly = (pts, fill) => {
+    ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+    for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.closePath();
+    if(fill){ ctx.fillStyle = fill; ctx.fill(); }
+    ctx.strokeStyle = '#222'; ctx.lineWidth = 0.8; ctx.stroke();
+  };
+  const col = CATCOL[p.cat] || '#2f6feb';
+  const sideCol = (c, f) => c; // Platzhalter
+  // dunklere Seitenfarbe
+  const darken = (hex) => hex;
+  const sideColor = '#3a4455';
+  for(const pts of sh.paths){
+    for(let i=0;i<pts.length-1;i++){
+      const A = pts[i], B = pts[i+1];
+      const dx = B[0]-A[0], dy = B[1]-A[1];
+      const len = Math.hypot(dx,dy) || 1;
+      // Perpendikulare (Einheit) * half
+      const px = -dy/len * half, py = dx/len * half;
+      // vier Eckpunkte der Band-Segment-Quad (in Track-Ebene)
+      const pA1 = [A[0]+px, A[1]+py];
+      const pA2 = [A[0]-px, A[1]-py];
+      const pB1 = [B[0]+px, B[1]+py];
+      const pB2 = [B[0]-px, B[1]-py];
+      const z0 = 0, zH = H;
+      // Top-Fläche (z=H)
+      poly([iso(pA1[0],pA1[1],zH), iso(pB1[0],pB1[1],zH), iso(pB2[0],pB2[1],zH), iso(pA2[0],pA2[1],zH)], col);
+      // Seite + (pA1-pB1 Kante)
+      poly([iso(pA1[0],pA1[1],z0), iso(pB1[0],pB1[1],z0), iso(pB1[0],pB1[1],zH), iso(pA1[0],pA1[1],zH)], sideColor);
+      // Seite - (pA2-pB2 Kante)
+      poly([iso(pA2[0],pA2[1],z0), iso(pB2[0],pB2[1],z0), iso(pB2[0],pB2[1],zH), iso(pA2[0],pA2[1],zH)], sideColor);
+    }
+    // Endkappen an den Pfadenden (erstes und letztes Segment)
+    if(pts.length >= 2){
+      const A = pts[0];
+      const dx = pts[1][0]-pts[0][0], dy = pts[1][1]-pts[0][1];
+      const len = Math.hypot(dx,dy)||1;
+      const px = -dy/len*half, py = dx/len*half;
+      const a1=[A[0]+px,A[1]+py], a2=[A[0]-px,A[1]-py];
+      poly([iso(a1[0],a1[1],0), iso(a2[0],a2[1],0), iso(a2[0],a2[1],H), iso(a1[0],a1[1],H)], sideColor);
+      const L = pts[pts.length-1], P = pts[pts.length-2];
+      const dx2 = L[0]-P[0], dy2 = L[1]-P[1];
+      const len2 = Math.hypot(dx2,dy2)||1;
+      const px2 = -dy2/len2*half, py2 = dx2/len2*half;
+      const b1=[L[0]+px2,L[1]+py2], b2=[L[0]-px2,L[1]-py2];
+      poly([iso(b1[0],b1[1],0), iso(b2[0],b2[1],0), iso(b2[0],b2[1],H), iso(b1[0],b1[1],H)], sideColor);
+    }
+  }
+  // Untertitel
+  ctx.fillStyle='#e6ebf0'; ctx.font='11px system-ui,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+  ctx.fillText(p.file + '  ·  ' + (mmOf(p)===null?'—':fmt(mmOf(p),1)+' mm'), cv.width/2, cv.height-8);
+}
+
+function renderPicked(){  const ids = Object.keys(allQtyEntries()).filter(id=>allQtyEntries()[id]>0 && byAnyId[id]);
   const box = document.getElementById('picked');
   if(!ids.length){ box.innerHTML = '<div class="empty">'+t('pickedEmpty')+'</div>'; return; }
   let html='';
+  const qmap = allQtyEntries();
   for(const id of ids){
-    const p = byId[id], q = state.qty[id], v = mmOf(p);
+    const p = byAnyId[id], q = qmap[id], v = (byId[id] ? mmOf(p) : null);
     const sub = (v===null||Number.isNaN(v)) ? '–' : fmt(q*v,0)+' mm';
     html += `<div class="pick">
       <div><b>${q}×</b> ${labelOf(p)}<div class="sub2">${p.file}</div></div>
@@ -3904,7 +4399,21 @@ function renderSummary(){
     ? `<div class="warnline">${t('partsNoDim', missing, missingNames.join(', '))}</div>` : '';
 }
 
-function renderAll(){ renderCatalog(); renderPicked(); renderSummary(); renderFitNote(); save(); }
+function renderGuide(){
+  const el = document.getElementById('guideBody');
+  if(!el) return;
+  const secs = (GUIDE_SECTIONS[state.lang] || GUIDE_SECTIONS.de);
+  el.innerHTML = secs.map(s => `<h3 style="margin:14px 0 4px;font-size:14px">${s.t}</h3><p style="margin:0 0 8px">${s.b}</p>`).join('');
+}
+function updateCollapseBtn(){
+  const btn = document.getElementById('btnCollapseAll');
+  if(!btn) return;
+  const allCats = [...CATS.map(c=>c.id), 'acc'];
+  const anyCollapsed = allCats.some(id => state.collapsed && state.collapsed[id]);
+  btn.textContent = anyCollapsed ? t('expandAll') : t('collapseAll');
+  btn.dataset.mode = anyCollapsed ? 'expand' : 'collapse';
+}
+function renderAll(){ renderCatalog(); renderAcc(); renderPicked(); renderSummary(); renderFitNote(); save(); }
 
 /* ---- Events ---- */
 document.getElementById('catalog').addEventListener('click', e=>{
@@ -3927,9 +4436,86 @@ document.getElementById('catalog').addEventListener('input', e=>{
   }
 });
 document.getElementById('picked').addEventListener('click', e=>{
-  if(e.target.dataset.del){ delete state.qty[e.target.dataset.del]; renderAll(); }
+  if(e.target.dataset.del){
+    const id = e.target.dataset.del;
+    if(byId[id]) delete state.qty[id];
+    else if(ACC_BY_ID[id]){
+      if(!state.acc) state.acc = {spliceAuto:true, qty:{}};
+      if(id==='acc_splice') state.acc.spliceAuto = false;
+      delete state.acc.qty[id];
+    }
+    renderAll(); renderAcc();
+  }
 });
 document.getElementById('filter').addEventListener('input', renderCatalog);
+// Alle auf-/zuklappen
+const _btnCollapseAll = document.getElementById('btnCollapseAll');
+if(_btnCollapseAll) _btnCollapseAll.addEventListener('click', ()=>{
+  if(!state.collapsed) state.collapsed = {};
+  const allCats = [...CATS.map(c=>c.id), 'acc'];
+  const anyCollapsed = allCats.some(id => state.collapsed[id]);
+  if(anyCollapsed){
+    allCats.forEach(id => delete state.collapsed[id]);
+  } else {
+    allCats.forEach(id => state.collapsed[id] = true);
+  }
+  save(); renderCatalog(); renderAcc();
+});
+// Zubehör-Header ein-/ausklappen
+document.addEventListener('click', e=>{
+  const cat = e.target && e.target.closest ? e.target.closest('.cat[data-cat="acc"]') : null;
+  if(cat){
+    if(!state.collapsed) state.collapsed = {};
+    state.collapsed.acc = !state.collapsed.acc;
+    save(); renderAcc();
+  }
+});
+document.getElementById('catalog').addEventListener('click', e=>{
+  const cat = e.target.closest ? e.target.closest('.cat') : null;
+  if(cat && cat.dataset.cat){
+    if(!state.collapsed) state.collapsed = {};
+    state.collapsed[cat.dataset.cat] = !state.collapsed[cat.dataset.cat];
+    save(); renderCatalog();
+  }
+});
+// Splice-Auto Checkbox (oben)
+const _spliceTop = document.getElementById('spliceAutoTop');
+if(_spliceTop) _spliceTop.addEventListener('change', e=>{
+  if(!state.acc) state.acc = {spliceAuto:true, qty:{}};
+  state.acc.spliceAuto = e.target.checked;
+  save(); renderAcc(); renderPicked(); renderSummary();
+});
+// Zubehör-Events (delegiert)
+document.getElementById('accCatalog').addEventListener('click', e=>{
+  const t = e.target;
+  if(t.dataset.accinc){
+    const id = t.dataset.accinc;
+    if(!state.acc) state.acc = {spliceAuto:true, qty:{}};
+    if(id==='acc_splice') state.acc.spliceAuto = false;
+    state.acc.qty[id] = (state.acc.qty[id]||0)+1;
+    save(); renderAcc(); renderPicked(); renderSummary();
+  }
+  if(t.dataset.accdec){
+    const id = t.dataset.accdec;
+    if(!state.acc) state.acc = {spliceAuto:true, qty:{}};
+    if(id==='acc_splice') state.acc.spliceAuto = false;
+    state.acc.qty[id] = Math.max(0, (state.acc.qty[id]||0)-1);
+    save(); renderAcc(); renderPicked(); renderSummary();
+  }
+});
+document.getElementById('accCatalog').addEventListener('input', e=>{
+  const t = e.target;
+  if(t.dataset.accqty){
+    const id = t.dataset.accqty;
+    if(!state.acc) state.acc = {spliceAuto:true, qty:{}};
+    if(id==='acc_splice') state.acc.spliceAuto = false;
+    const v = parseInt(t.value,10);
+    state.acc.qty[id] = Number.isFinite(v)&&v>0 ? v : 0;
+    save(); renderPicked(); renderSummary();
+    const topCb = document.getElementById('spliceAutoTop');
+    if(topCb) topCb.checked = state.acc.spliceAuto;
+  }
+});
 ['seriesFilter','palSeriesFilter'].forEach(id=>document.getElementById(id).addEventListener('change', e=>{
   setFilter('series', e.target.value); renderCatalog(); renderPal();
 }));
@@ -3950,7 +4536,7 @@ document.getElementById('stripM').addEventListener('input', e=>{
 document.getElementById('btnReset').addEventListener('click', ()=>{
   if(!confirm(t('confirmReset'))) return;
   state={stripM:5,qty:{},override:{},edit:state.edit,tab:'list',plan:sanitizePlan(null),lang:state.lang,
-    theme:state.theme, exp:sanitizeExp(null)};
+    theme:state.theme, acc:{spliceAuto:true,qty:{}}, collapsed:{}, exp:sanitizeExp(null)};
   document.getElementById('stripM').value=5;
   sel=null; undoStack=[]; setPlanBild(null);
   syncPlanControls(); setTab('list');
@@ -3965,6 +4551,7 @@ document.getElementById('btnExport').addEventListener('click', ()=>{
     tab: state.tab,
     stripM: state.stripM,
     teile: Object.keys(state.qty).filter(id=>state.qty[id]>0).map(id=>({id, anzahl:state.qty[id], mm: mmOf(byId[id]) })),
+    zubehoer: {spliceAuto: !!(state.acc&&state.acc.spliceAuto), qty: (state.acc&&state.acc.qty) || {}},
     eigeneMass: state.override,
     plan: state.plan,
     planBild: state.plan.items.length ? planImageDataUrl() : null,
@@ -3987,8 +4574,11 @@ document.getElementById('fileInput').addEventListener('change', e=>{
       const d=JSON.parse(r.result);
       if(d.format!=='duality-streifenrechner') throw new Error(t('errFormat'));
       state.qty={};
+      // TODO (Sicherheitsbericht F-03): hasOwnProperty(byId, pt.id) und Override-Keys auf bekannte Teil-IDs beschränken
       (d.teile||[]).forEach(pt=>{ if(byId[pt.id] && pt.anzahl>0) state.qty[pt.id]=Math.round(pt.anzahl); });
-      state.override = d.eigeneMass && typeof d.eigeneMass==='object' ? d.eigeneMass : {};
+      state.acc = sanitizeAcc(d.zubehoer);
+       (d.teile||[]).forEach(pt=>{ if(ACC_BY_ID[pt.id] && pt.anzahl>0){ if(!state.acc.qty) state.acc.qty={}; state.acc.qty[pt.id]=Math.round(pt.anzahl); } });
+       state.override = d.eigeneMass && typeof d.eigeneMass==='object' ? d.eigeneMass : {};
       state.stripM = typeof d.stripM==='number' ? d.stripM : 5;
       state.plan = d.plan ? sanitizePlan(d.plan) : sanitizePlan(null);
       setPlanBild(d.planBild);
@@ -4413,7 +5003,7 @@ function applyLang(){
   }
   document.getElementById('langSel').value = state.lang;
   renderFilterOptions();
-  renderChangelog(); renderAll(); renderPal(); renderLegend(); renderPlanPanels(); drawPlan(); renderExport();
+  renderChangelog(); renderAll(); renderPal(); renderLegend(); renderPlanPanels(); drawPlan(); renderExport(); renderGuide();
 }
 document.getElementById('langSel').addEventListener('change', e=>{
   state.lang = e.target.value === 'en' ? 'en' : 'de';
@@ -4430,19 +5020,22 @@ function syncPlanControls(){
 }
 function setTab(t){
   hidePartPrev();
-  state.tab = (t==='plan' || t==='export') ? t : 'list';
+  state.tab = (t==='plan' || t==='export' || t==='guide') ? t : 'list';
   document.getElementById('viewList').hidden = state.tab!=='list';
   document.getElementById('viewPlan').hidden = state.tab!=='plan';
   document.getElementById('viewExport').hidden = state.tab!=='export';
+  document.getElementById('viewGuide').hidden = state.tab!=='guide';
   document.getElementById('tabList').classList.toggle('active', state.tab==='list');
   document.getElementById('tabPlan').classList.toggle('active', state.tab==='plan');
   document.getElementById('tabExport').classList.toggle('active', state.tab==='export');
+  document.getElementById('tabGuide').classList.toggle('active', state.tab==='guide');
   if(state.tab==='plan'){
     sizeCanvas();
     if(!view.fitted) fitView();
     renderPal(); renderLegend(); renderPlanPanels(); drawPlan();
   }
   if(state.tab==='export') renderExport();
+  if(state.tab==='guide') renderGuide();
   save();
 }
 
@@ -4830,10 +5423,10 @@ function renderExport(){
     const m = effDim(meshCache.get(r.path));
     const cls = m && (m.w>bed || m.h>bed) ? ' class="big"' : '';
     const grp = r.kind === 'skin' ? 'Skin' : 'Track';
-    return `<tr${cls}><td class="name" title="${r.path}">${grp} · ${r.name}</td>`
-      + `<td class="num"><input type="number" min="1" max="9999" value="${r.qty}" data-row="${i}" aria-label="${r.name}"></td>`
+    return `<tr${cls}><td class="name" title="${htmlEsc(r.path)}">${grp} · ${htmlEsc(r.name)}</td>`
+      + `<td class="num"><input type="number" min="1" max="9999" value="${htmlEsc(r.qty)}" data-row="${i}" aria-label="${htmlEsc(r.name)}"></td>`
       + `<td class="num">${m ? `${m.w.toFixed(1)} × ${m.h.toFixed(1)} × ${m.d.toFixed(1)}` : '—'}</td>`
-      + `<td>${m ? ((m.w>bed||m.h>bed) ? t('expOversize',1,r.name) : 'OK') : '—'}</td></tr>`;
+      + `<td>${m ? ((m.w>bed||m.h>bed) ? t('expOversize',1,htmlEsc(r.name)) : 'OK') : '—'}</td></tr>`;
   }).join('');
   document.getElementById('expTable').hidden = !expRows.length;
 
@@ -4851,6 +5444,18 @@ function renderExport(){
   if(s.tooHigh.length) bits.push(t('expTooHigh', s.tooHigh.length, nameList(s.tooHigh.map(r=>r.name))));
   if(expInfo.noSkin.length) bits.push(t('expNoSkin', expInfo.noSkin.length, nameList(expInfo.noSkin)));
   document.getElementById('expStat').innerHTML = bits.map(b=>`<span>${b}</span>`).join('');
+  // Hardware-Hinweis (Schrauben aus der Anleitung)
+  const hw = document.getElementById('expHardware');
+  if(hw){
+    const sc = accQty('acc_splice') + accQty('acc_splice_evo');
+    if(sc > 0){
+      hw.textContent = t('expHardware', sc, sc*2);
+      hw.hidden = false;
+    } else {
+      hw.textContent = '';
+      hw.hidden = true;
+    }
+  }
 }
 
 function setProgress(frac){
@@ -4916,6 +5521,7 @@ async function doExport(){
 }
 
 document.getElementById('tabExport').addEventListener('click', ()=>setTab('export'));
+document.getElementById('tabGuide').addEventListener('click', ()=>setTab('guide'));
 document.getElementById('stlDrop').addEventListener('click', pickStlFolder);
 document.getElementById('btnStlFiles').addEventListener('click', ()=>document.getElementById('stlFilesInput').click());
 document.getElementById('stlInput').addEventListener('change', e=>{ addFilesFromInput(e.target); e.target.value=''; });
@@ -4947,6 +5553,31 @@ document.getElementById('expBody').addEventListener('change', e=>{
   if(Number.isInteger(n) && n>0 && n<=9999){ state.exp.counts[row.name] = n; row.qty = n; }
   else input.value = row.qty;
   save(); renderExport();
+});
+
+// Modal-Events
+document.getElementById('partModalClose').addEventListener('click', closePartModal);
+document.getElementById('partModal').addEventListener('click', e=>{ if(e.target.id==='partModal') closePartModal(); });
+document.getElementById('partModalModeBand').addEventListener('click', ()=>{ modalMode='band'; renderPartModal(); });
+document.getElementById('partModalModeIso').addEventListener('click', ()=>{ modalMode='iso'; renderPartModal(); });
+// Klick auf Teilname öffnet vergrößerte Ansicht
+function openModalFromRow(row){
+  if(!row) return;
+  let p = null;
+  if(row.dataset.part) p = byId[row.dataset.part] || byAnyId[row.dataset.part];
+  if(row.dataset.acc) p = ACC_BY_ID[row.dataset.acc];
+  if(p) openPartModal(p);
+}
+document.getElementById('catalog').addEventListener('click', e=>{
+  const lbl = e.target.closest ? e.target.closest('.lbl') : null;
+  const row = lbl ? lbl.closest('.row') : null;
+  // nur öffnen, wenn nicht auf Buttons/Inputs geklickt
+  if(lbl && !e.target.closest('button') && !e.target.closest('input')) openModalFromRow(row);
+});
+document.getElementById('accCatalog').addEventListener('click', e=>{
+  const lbl = e.target.closest ? e.target.closest('.lbl') : null;
+  const row = lbl ? lbl.closest('.row') : null;
+  if(lbl && !e.target.closest('button') && !e.target.closest('input')) openModalFromRow(row);
 });
 
 load();

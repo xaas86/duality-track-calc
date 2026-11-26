@@ -4,6 +4,28 @@ Versionierung: SemVer mit Kanal-Suffix (`-alpha`, `-beta`, `-rc`); der Kanal wir
 Die oberste Version hier muss der Konstante `APP_VERSION` in `index.html` entsprechen (prüft `check.js`).
 Derselbe Changelog ist in der App unter „Änderungen" eingeblendet.
 
+## [0.3.9-alpha] – 2026-11-26
+
+### Neu (Anleitung-Tab & Zubehör-Beschreibungen)
+
+- **Anleitung-Tab:** Inhalt der `guide.pdf` (Drucken, LED-Strips, 45°/90°-Tracks, Skins, Base Tracks, Montage, Installation, Warnung) als neuen Tab.
+- **Zubehör-Beschreibungen:** jede Zubehör-Zeile zeigt jetzt, wofür das Teil gebraucht wird (Splice Block, End/Base Mount, Light Coupling).
+
+## [0.3.8-alpha] – 2026-11-26
+
+### Neu (Zubehör in der Streifenliste)
+
+- **Zubehör-Auswahl:** Splice-Blocks (automatisch Anzahl Tracks − 1, per Checkbox abwählbar), End Mounts, Base Mounts und Light Couplings mit manueller Stückzahl
+- **Anzeige:** Zubehör erscheint in der Auswahl & Auswertung und im JSON-Export/Import (Feld `zubehoer`)
+
+## [0.3.7-alpha] – 2026-11-25
+
+### Sicherheit (DOM-XSS / CSP)
+
+- **F-01 behoben:** Pfad und Name in `renderExport()` werden jetzt über `htmlEsc()` in das HTML-Attribut/den Text eingefügt; ein präparierter Ordnernamen wie `"><img src=x onerror=alert(1)>` wird als Tooltip-Text angezeigt, ohne Skript auszuführen. Der Ordner-Import und das Pfad-Matching (`f.path` als Key) bleiben unverändert.
+- **F-02 behoben:** Content-Security-Policy als `<meta http-equiv="Content-Security-Policy">` ergänzt (`default-src 'self'`, `connect-src 'none'`, `object-src 'none'`, `base-uri 'none'`, `form-action 'none'`, `frame-ancestors 'none'`, Inline-Skripte/Stile erlaubt, Bilder auch aus `data:`/`blob:`).
+- **Für später dokumentiert:** F-03 (JSON-Import: `hasOwnProperty` + Override-Key-Whitelist), F-04 (Größen-/Anzahlbegrenzungen beim Import und STL-Parsing) und F-05 (`noreferrer` bei externen Links) sind als Härtungs-/Robustheitshinweise notiert und können bei passender Gelegenheit mit umgesetzt werden.
+
 ## [0.3.6-alpha] – 2026-11-23
 
 ### Neu (Vorschau in der Streifenliste)
